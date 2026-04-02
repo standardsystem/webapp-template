@@ -1,0 +1,171 @@
+# =============================================================================
+# mise — ポリグロットバージョン・ツール管理
+# https://mise.jdx.dev/
+#
+# 初回セットアップ:
+#   mise trust && mise install
+#   mise run setup
+# =============================================================================
+
+[tools]
+# ── ランタイム ──────────────────────────────────────────────
+go     = "1.26"       # go.mod / Dockerfile と一致
+node   = "24"         # Dockerfile node:24-alpine と一致 (Active LTS)
+python = "3.14"       # スクリプト・ツール用
+
+# ── パッケージマネージャ ───────────────────────────────────
+uv   = "latest"       # Python 高速パッケージマネージャ
+pnpm = "latest"       # Node.js 高速パッケージマネージャ
+
+# ── Go 開発ツール ──────────────────────────────────────────
+"go:github.com/golangci/golangci-lint/cmd/golangci-lint" = "2.11"
+"go:github.com/air-verse/air"                            = "latest"
+"go:github.com/pressly/goose/v3/cmd/goose"               = "latest"
+
+[settings]
+auto_install = true
+
+# ── 環境変数（ローカル開発用） ─────────────────────────────
+[env]
+_.file = [".env", ".env.local"]
+
+# ── タスク ──────────────────────────────────────────────────
+
+[tasks.setup]
+description = "プロジェクト初期セットアップ"
+run = """
+echo "=== mise: ツールインストール ==="
+mise install
+
+echo "=== Backend: Go モジュール ==="
+cd backend && go mod download
+
+echo "=== Frontend: pnpm install ==="
+cd frontend && pnpm install
+
+echo "=== セットアップ完了 ==="
+"""
+
+[tasks.dev]
+description = "Docker Compose で開発環境を起動"
+run = "docker compose up --build --watch"
+
+[tasks."dev:backend"]
+description = "バックエンドのみ起動（air ホットリロード）"
+run = "cd backend && air"
+
+[tasks."dev:frontend"]
+description = "フロントエンドのみ起動"
+run = "cd frontend && pnpm dev"
+
+[tasks."dev:down"]
+description = "開発環境を停止"
+run = "docker compose down"
+
+[tasks.test]
+description = "全テスト実行"
+run = """
+echo "=== Backend Tests ==="
+cd backend && go test -v -race -cover ./...
+
+echo "=== Frontend Tests ==="
+cd frontend && pnpm test
+"""
+
+[tasks."test:backend"]
+description = "バックエンドテストのみ"
+run = "cd backend && go test -v -race -cover ./..."
+
+[tasks."test:frontend"]
+description = "フロントエンドテストのみ"
+run = "cd frontend && pnpm test"
+
+[tasks."test:coverage"]
+description = "カバレッジレポート生成"
+run = """
+echo "=== Backend Coverage ==="
+cd backend && go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
+
+echo "=== Frontend Coverage ==="
+cd frontend && pnpm test:coverage
+"""
+
+[tasks.lint]
+description = "静的解析（全体）"
+run = """
+echo "=== Backend Lint ==="
+cd backend && golangci-lint run ./...
+
+echo "=== Frontend Lint ==="
+cd frontend && pnpm lint && pnpm type-check
+"""
+
+[tasks."lint:backend"]
+description = "バックエンド Lint のみ"
+run = "cd backend && golangci-lint run ./..."
+
+[tasks."lint:frontend"]
+description = "フロントエンド Lint のみ"
+run = "cd frontend && pnpm lint && pnpm type-check"
+
+[tasks.fmt]
+description = "コードフォーマット（Go + Prettier）"
+run = """
+echo "=== Go fmt ==="
+cd backend && gofmt -w .
+
+echo "=== Prettier ==="
+cd frontend && pnpm prettier --write 'src/**/*.{ts,tsx,css,json}'
+"""
+
+[tasks.build]
+description = "本番用 Docker イメージビルド"
+run = """
+echo "=== Backend Build ==="
+cd backend && docker build -t webapp-backend .
+
+echo "=== Frontend Build ==="
+cd frontend && docker build -t webapp-frontend .
+"""
+
+[tasks."db:up"]
+description = "DB コンテナのみ起動"
+run = "docker compose up -d db"
+
+[tasks."db:migrate"]
+description = "DB マイグレーション実行"
+depends = ["db:up"]
+run = "cd backend && goose -dir migrations postgres \"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" up"
+
+[tasks."db:rollback"]
+description = "DB マイグレーションをロールバック"
+run = "cd backend && goose -dir migrations postgres \"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" down"
+
+[tasks."db:status"]
+description = "DB マイグレーション状態確認"
+run = "cd backend && goose -dir migrations postgres \"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" status"
+
+[tasks.clean]
+description = "ビルド成果物をクリーンアップ"
+run = """
+docker compose down -v
+cd backend && rm -f coverage.out coverage.html server
+cd frontend && rm -rf dist coverage
+"""
+
+[tasks.check]
+description = "CI 相当のチェック（lint + test）"
+depends = ["lint", "test"]
+
+[tasks.info]
+description = "現在の開発環境情報を表示"
+run = """
+echo "=== mise ツールバージョン ==="
+mise current
+echo ""
+go version
+node --version
+python --version
+pnpm --version
+uv --version
+"""

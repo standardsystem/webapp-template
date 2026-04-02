@@ -1,40 +1,60 @@
-.PHONY: dev test lint build deploy clean help
+# =============================================================================
+# Makefile — mise run へのエイリアス
+# 実体は .mise.toml の [tasks] に定義。make ユーザー向けの互換レイヤー。
+# 推奨: mise run <task> を直接使用
+# =============================================================================
+
+.PHONY: setup dev dev-down test test-coverage lint fmt build deploy clean check info help
+
+## 初期セットアップ
+setup:
+	mise run setup
 
 ## ローカル開発
 dev:
-	docker compose up --build --watch
+	mise run dev
+
+dev-backend:
+	mise run dev:backend
+
+dev-frontend:
+	mise run dev:frontend
 
 dev-down:
-	docker compose down
+	mise run dev:down
 
 ## テスト
 test:
-	@echo "=== Backend Tests ==="
-	cd backend && go test -v -race -cover ./...
-	@echo "=== Frontend Tests ==="
-	cd frontend && npm run test
+	mise run test
+
+test-backend:
+	mise run test:backend
+
+test-frontend:
+	mise run test:frontend
 
 test-coverage:
-	@echo "=== Backend Coverage ==="
-	cd backend && go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
-	@echo "=== Frontend Coverage ==="
-	cd frontend && npm run test:coverage
+	mise run test:coverage
 
 ## 静的解析
 lint:
-	@echo "=== Backend Lint ==="
-	cd backend && golangci-lint run ./...
-	@echo "=== Frontend Lint ==="
-	cd frontend && npm run lint && npm run type-check
+	mise run lint
+
+lint-backend:
+	mise run lint:backend
+
+lint-frontend:
+	mise run lint:frontend
+
+## フォーマット
+fmt:
+	mise run fmt
 
 ## ビルド
 build:
-	@echo "=== Backend Build ==="
-	cd backend && docker build -t webapp-backend .
-	@echo "=== Frontend Build ==="
-	cd frontend && docker build -t webapp-frontend .
+	mise run build
 
-## Cloud Run デプロイ（ローカルから手動実行用）
+## Cloud Run デプロイ
 deploy: build
 	@echo "Cloud Run へデプロイ中..."
 	gcloud run deploy webapp-template-api \
@@ -46,17 +66,30 @@ deploy: build
 		--region=asia-northeast1 \
 		--allow-unauthenticated
 
-## 初期セットアップ
-setup:
-	cd frontend && npm install
-	cd backend && go mod download
+## DB
+db-up:
+	mise run db:up
 
-## クリーンアップ
+db-migrate:
+	mise run db:migrate
+
+db-rollback:
+	mise run db:rollback
+
+db-status:
+	mise run db:status
+
+## ユーティリティ
 clean:
-	docker compose down -v
-	cd backend && rm -f coverage.out coverage.html
-	cd frontend && rm -rf dist coverage
+	mise run clean
+
+check:
+	mise run check
+
+info:
+	mise run info
 
 ## ヘルプ
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo "利用可能なタスク (mise run --list で詳細表示):"
+	@mise tasks ls

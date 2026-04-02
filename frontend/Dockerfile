@@ -1,16 +1,18 @@
 # ---- Build Stage ----
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN npm run build
+RUN pnpm build
 
 # ---- Runtime Stage ----
-FROM nginx:1.27-alpine
+FROM nginx:1.28-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf

@@ -8,6 +8,9 @@
 
 - **名称**: webapp-template
 - **構成**: Go バックエンド API + React (Vite + TypeScript) フロントエンド
+- **ツール管理**: mise（Go / Node / Python のバージョン固定）
+- **パッケージ管理**: Go Modules / pnpm (Node) / uv (Python)
+- **タスクランナー**: mise tasks（`mise run <task>`）
 - **デプロイ先**: Google Cloud Run
 - **CI/CD**: GitHub Actions
 
@@ -29,9 +32,10 @@
 │       ├── components/ # UI コンポーネント
 │       ├── hooks/      # カスタムフック
 │       └── lib/        # ユーティリティ
+├── .mise.toml         # mise: ツールバージョン & タスク定義
 ├── .github/workflows/ # CI/CD パイプライン
 ├── docker-compose.yml # ローカル開発環境
-└── Makefile           # 開発コマンド集
+└── Makefile           # mise run へのエイリアス（互換用）
 ```
 
 ---
@@ -44,7 +48,7 @@
 - **ドメインロジック**: usecase/domain 以外にビジネスロジックを書かない
 
 ### Go コーディング規約
-- `gofmt` / `golangci-lint` を必ず通す（`make lint`）
+- `gofmt` / `golangci-lint` を必ず通す（`mise run lint`）
 - エラーは必ず上位に返す（`fmt.Errorf("wrap: %w", err)` 形式）
 - パッケージ名はシンプルに（例: `handler`, `usecase`, `domain`）
 - テーブル駆動テストで書く（`t.Run` + サブテスト）
@@ -75,14 +79,34 @@ chore: ビルド・設定変更
 
 ---
 
+## セットアップ
+
+```bash
+# 1. mise インストール (https://mise.jdx.dev/getting-started.html)
+# 2. プロジェクト初期化
+mise trust && mise install
+mise run setup              # Go mod download + pnpm install
+```
+
 ## よく使うコマンド
 
 ```bash
-make dev        # フロント・バック同時起動
-make test       # 全テスト実行
-make lint       # 静的解析
-make build      # 本番ビルド
-make deploy     # Cloud Run デプロイ
+# タスクランナー（推奨）
+mise run dev              # フロント・バック同時起動 (Docker Compose)
+mise run dev:backend      # バックエンドのみ (air ホットリロード)
+mise run dev:frontend     # フロントエンドのみ (Vite)
+mise run test             # 全テスト実行
+mise run lint             # 静的解析
+mise run fmt              # コードフォーマット
+mise run build            # 本番ビルド
+mise run check            # CI 相当 (lint + test)
+mise run db:migrate       # DB マイグレーション
+mise run info             # 環境情報表示
+
+# make エイリアス（互換用）
+make dev                  # → mise run dev
+make test                 # → mise run test
+make deploy               # Cloud Run デプロイ
 ```
 
 ---

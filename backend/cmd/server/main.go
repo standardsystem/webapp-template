@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -19,12 +18,10 @@ import (
 	"github.com/your-org/webapp-template/internal/domain"
 	"github.com/your-org/webapp-template/internal/handler"
 	"github.com/your-org/webapp-template/internal/infrastructure"
+	"github.com/your-org/webapp-template/migrations"
 	"github.com/your-org/webapp-template/internal/repository"
 	"github.com/your-org/webapp-template/internal/usecase"
 )
-
-//go:embed ../../migrations/*.sql
-var migrationsFS embed.FS
 
 func main() {
 	// .env 読み込み（本番では無視される）
@@ -175,7 +172,7 @@ func main() {
 }
 
 func loadMigrations() ([]infrastructure.MigrationFile, error) {
-	entries, err := migrationsFS.ReadDir("migrations")
+	entries, err := migrations.FS.ReadDir(".")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read migrations dir: %w", err)
 	}
@@ -184,7 +181,7 @@ func loadMigrations() ([]infrastructure.MigrationFile, error) {
 		if e.IsDir() {
 			continue
 		}
-		content, err := migrationsFS.ReadFile("migrations/" + e.Name())
+		content, err := migrations.FS.ReadFile(e.Name())
 		if err != nil {
 			return nil, fmt.Errorf("failed to read %s: %w", e.Name(), err)
 		}

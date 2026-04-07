@@ -1,31 +1,31 @@
-import { type ReactNode } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { LoginPage } from '@/pages/LoginPage'
+import { type ReactNode } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Props = {
-  children: ReactNode
-  requiredRole?: 'admin' | 'member'
-}
+  children: ReactNode;
+  requiredRole?: "admin" | "member";
+};
 
 export function ProtectedRoute({ children, requiredRole }: Props) {
-  const { user, loading } = useAuth()
+  const { user, loading } = useAuth();
 
   if (loading) {
-    return <div style={{ textAlign: 'center', marginTop: 80 }}>読み込み中...</div>
+    return <div className="mt-20 text-center">読み込み中...</div>;
   }
 
   if (!user) {
-    return <LoginPage />
+    return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole === 'admin' && user.role !== 'admin') {
+  if (requiredRole === "admin" && user.role !== "admin") {
     return (
-      <div style={{ textAlign: 'center', marginTop: 80 }}>
-        <h2>アクセス権限がありません</h2>
-        <p>この機能には管理者権限が必要です。</p>
+      <div className="mt-20 text-center">
+        <h2 className="text-xl font-bold">アクセス権限がありません</h2>
+        <p className="mt-2 text-gray-600">この機能には管理者権限が必要です。</p>
       </div>
-    )
+    );
   }
 
-  return <>{children}</>
+  return <>{children}</>;
 }

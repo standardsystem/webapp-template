@@ -23,14 +23,16 @@ type GoogleOAuthProvider struct {
 	clientID     string
 	clientSecret string
 	redirectURL  string
+	httpClient   *http.Client
 }
 
 // NewGoogleOAuthProvider は GoogleOAuthProvider を生成します。
-func NewGoogleOAuthProvider(clientID, clientSecret, redirectURL string) *GoogleOAuthProvider {
+func NewGoogleOAuthProvider(clientID, clientSecret, redirectURL string, httpClient *http.Client) *GoogleOAuthProvider {
 	return &GoogleOAuthProvider{
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		redirectURL:  redirectURL,
+		httpClient:   httpClient,
 	}
 }
 
@@ -66,7 +68,7 @@ func (g *GoogleOAuthProvider) Exchange(ctx context.Context, code string) (*domai
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
@@ -98,7 +100,7 @@ func (g *GoogleOAuthProvider) UserInfo(ctx context.Context, token *domain.OAuthT
 	}
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}

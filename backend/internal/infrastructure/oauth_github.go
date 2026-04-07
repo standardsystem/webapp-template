@@ -24,14 +24,16 @@ type GitHubOAuthProvider struct {
 	clientID     string
 	clientSecret string
 	redirectURL  string
+	httpClient   *http.Client
 }
 
 // NewGitHubOAuthProvider は GitHubOAuthProvider を生成します。
-func NewGitHubOAuthProvider(clientID, clientSecret, redirectURL string) *GitHubOAuthProvider {
+func NewGitHubOAuthProvider(clientID, clientSecret, redirectURL string, httpClient *http.Client) *GitHubOAuthProvider {
 	return &GitHubOAuthProvider{
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		redirectURL:  redirectURL,
+		httpClient:   httpClient,
 	}
 }
 
@@ -64,7 +66,7 @@ func (g *GitHubOAuthProvider) Exchange(ctx context.Context, code string) (*domai
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
@@ -99,7 +101,7 @@ func (g *GitHubOAuthProvider) UserInfo(ctx context.Context, token *domain.OAuthT
 	}
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
@@ -151,7 +153,7 @@ func (g *GitHubOAuthProvider) fetchPrimaryEmail(ctx context.Context, accessToken
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := g.httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to get emails: %w", err)
 	}

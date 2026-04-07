@@ -62,13 +62,21 @@ func main() {
 
 	// --- セッションサービス ---
 	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		slog.Error("JWT_SECRET is required")
+	if len(jwtSecret) < 32 {
+		slog.Error("JWT_SECRET must be at least 32 characters")
 		os.Exit(1)
 	}
 	sessionSvc := infrastructure.NewJWTSessionService(jwtSecret, 24*time.Hour)
 
+	// --- FRONTEND_ORIGIN ---
+	frontendOrigin := os.Getenv("FRONTEND_ORIGIN")
+	if frontendOrigin == "" {
+		slog.Error("FRONTEND_ORIGIN is required")
+		os.Exit(1)
+	}
+
 	// --- OAuth プロバイダ ---
+	oauthHTTPClient := &http.Client{Timeout: 10 * time.Second}
 	providers := make(map[string]domain.OAuthProvider)
 
 	if id := os.Getenv("GOOGLE_CLIENT_ID"); id != "" {
@@ -76,6 +84,7 @@ func main() {
 			id,
 			os.Getenv("GOOGLE_CLIENT_SECRET"),
 			os.Getenv("GOOGLE_REDIRECT_URL"),
+			oauthHTTPClient,
 		)
 	}
 	if id := os.Getenv("GITHUB_CLIENT_ID"); id != "" {
@@ -83,6 +92,7 @@ func main() {
 			id,
 			os.Getenv("GITHUB_CLIENT_SECRET"),
 			os.Getenv("GITHUB_REDIRECT_URL"),
+			oauthHTTPClient,
 		)
 	}
 	if id := os.Getenv("MICROSOFT_CLIENT_ID"); id != "" {
@@ -90,6 +100,7 @@ func main() {
 			id,
 			os.Getenv("MICROSOFT_CLIENT_SECRET"),
 			os.Getenv("MICROSOFT_REDIRECT_URL"),
+			oauthHTTPClient,
 		)
 	}
 
@@ -101,7 +112,11 @@ func main() {
 	authUC := usecase.NewAuthUsecase(userRepo, providerRepo, sessionSvc, providers)
 
 	// --- ハンドラ・ミドルウェア ---
-	authHandler := handler.NewAuthHandler(authUC)
+	authHandler := handler.NewAuthHandler(authUC, handler.AuthHandlerConfig{
+		SecureCookie:   os.Getenv("COOKIE_SECURE") == "true",
+		FrontendOrigin: frontendOrigin,
+	})
+	userHandler := handler.NewUserHandler(userRepo)
 	authMW := handler.NewAuthMiddleware(sessionSvc)
 
 	// --- ルーター ---
@@ -113,7 +128,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{os.Getenv("FRONTEND_ORIGIN")},
+		AllowedOrigins:   []string{frontendOrigin},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -122,8 +137,11 @@ func main() {
 	r.Get("/health", handler.Health)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// 公開エンドポイント: OAuth フロー
-		r.Mount("/auth", authHandler.Router())
+		// 公開エンドポイント: OAuth フロー（レート制限付き）
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Throttle(10)) // 同時リクエスト数を制限
+			r.Mount("/auth", authHandler.Router())
+		})
 
 		// 認証必須エンドポイント
 		r.Group(func(r chi.Router) {
@@ -131,6 +149,9 @@ func main() {
 
 			r.Get("/auth/me", authHandler.HandleMe)
 			r.Post("/auth/logout", authHandler.HandleLogout)
+
+			// ユーザー CRUD
+			r.Mount("/users", userHandler.Router())
 
 			// admin のみ
 			r.Group(func(r chi.Router) {

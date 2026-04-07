@@ -20,7 +20,10 @@ pnpm = "latest"       # Node.js 高速パッケージマネージャ
 # ── Go 開発ツール ──────────────────────────────────────────
 "go:github.com/golangci/golangci-lint/cmd/golangci-lint" = "2.11"
 "go:github.com/air-verse/air"                            = "latest"
-"go:github.com/pressly/goose/v3/cmd/goose"               = "latest"
+# goose は不要（マイグレーションはサーバー起動時に自動適用）
+
+# ── Markdown（.markdownlint-cli2.jsonc）──────────────────
+"npm:markdownlint-cli2" = "0.17.2"
 
 [settings]
 auto_install = true
@@ -39,6 +42,9 @@ mise install
 
 echo "=== Backend: Go モジュール ==="
 cd backend && go mod download
+
+echo "=== CLI: Go モジュール ==="
+cd cli && go mod download
 
 echo "=== Frontend: pnpm install ==="
 cd frontend && pnpm install
@@ -68,6 +74,9 @@ run = """
 echo "=== Backend Tests ==="
 cd backend && go test -v -race -cover ./...
 
+echo "=== CLI Tests ==="
+cd cli && go test -v -race -cover ./...
+
 echo "=== Frontend Tests ==="
 cd frontend && pnpm test
 """
@@ -80,11 +89,18 @@ run = "cd backend && go test -v -race -cover ./..."
 description = "フロントエンドテストのみ"
 run = "cd frontend && pnpm test"
 
+[tasks."test:cli"]
+description = "CLI のテストのみ"
+run = "cd cli && go test -v -race -cover ./..."
+
 [tasks."test:coverage"]
 description = "カバレッジレポート生成"
 run = """
 echo "=== Backend Coverage ==="
 cd backend && go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
+
+echo "=== CLI Coverage ==="
+cd cli && go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
 
 echo "=== Frontend Coverage ==="
 cd frontend && pnpm test:coverage
@@ -96,8 +112,14 @@ run = """
 echo "=== Backend Lint ==="
 cd backend && golangci-lint run ./...
 
+echo "=== CLI Lint ==="
+cd cli && golangci-lint run ./...
+
 echo "=== Frontend Lint ==="
 cd frontend && pnpm lint && pnpm type-check
+
+echo "=== Markdown Lint ==="
+markdownlint-cli2
 """
 
 [tasks."lint:backend"]
@@ -108,14 +130,26 @@ run = "cd backend && golangci-lint run ./..."
 description = "フロントエンド Lint のみ"
 run = "cd frontend && pnpm lint && pnpm type-check"
 
+[tasks."lint:cli"]
+description = "CLI Lint のみ"
+run = "cd cli && golangci-lint run ./..."
+
+[tasks."lint:markdown"]
+description = "Markdown（markdownlint-cli2）のみ"
+run = "markdownlint-cli2"
+
 [tasks.fmt]
-description = "コードフォーマット（Go + Prettier）"
+description = "コードフォーマット（Go + Prettier + Markdown）"
 run = """
 echo "=== Go fmt ==="
 cd backend && gofmt -w .
+cd cli && gofmt -w .
 
 echo "=== Prettier ==="
-cd frontend && pnpm prettier --write 'src/**/*.{ts,tsx,css,json}'
+cd frontend && pnpm format
+
+echo "=== Markdown fix ==="
+markdownlint-cli2 --fix
 """
 
 [tasks.build]
@@ -133,23 +167,27 @@ description = "DB コンテナのみ起動"
 run = "docker compose up -d db"
 
 [tasks."db:migrate"]
-description = "DB マイグレーション実行"
+description = "DB マイグレーション実行（サーバー起動で自動適用）"
 depends = ["db:up"]
-run = "cd backend && goose -dir migrations postgres \"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" up"
-
-[tasks."db:rollback"]
-description = "DB マイグレーションをロールバック"
-run = "cd backend && goose -dir migrations postgres \"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" down"
+run = """
+echo "マイグレーションはサーバー起動時に自動適用されます。"
+echo "手動で確認するには: mise run db:status"
+"""
 
 [tasks."db:status"]
 description = "DB マイグレーション状態確認"
-run = "cd backend && goose -dir migrations postgres \"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" status"
+depends = ["db:up"]
+run = """
+psql "${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}" \
+  -c "SELECT version, applied_at FROM schema_migrations ORDER BY version;"
+"""
 
 [tasks.clean]
 description = "ビルド成果物をクリーンアップ"
 run = """
 docker compose down -v
 cd backend && rm -f coverage.out coverage.html server
+cd cli && rm -f coverage.out coverage.html webapp-cli
 cd frontend && rm -rf dist coverage
 """
 

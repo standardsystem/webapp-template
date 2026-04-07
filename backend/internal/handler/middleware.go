@@ -78,3 +78,11 @@ func RoleFromContext(ctx context.Context) domain.Role {
 	v, _ := ctx.Value(ctxRole).(domain.Role)
 	return v
 }
+
+// ContextWithUser はテスト用にユーザー情報をコンテキストに設定するヘルパーです。
+func ContextWithUser(ctx context.Context, userID, email string, role domain.Role) context.Context {
+	ctx = context.WithValue(ctx, ctxUserID, userID)
+	ctx = context.WithValue(ctx, ctxEmail, email)
+	ctx = context.WithValue(ctx, ctxRole, role)
+	return ctx
+}

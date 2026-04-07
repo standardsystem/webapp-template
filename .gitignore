@@ -6,6 +6,10 @@
 backend/coverage.out
 backend/coverage.html
 backend/server
+cli/coverage.out
+cli/coverage.html
+cli/webapp-cli
+cli/webapp-cli.exe
 
 # Node
 frontend/node_modules/

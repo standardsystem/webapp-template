@@ -4,13 +4,11 @@
 # 推奨: mise run <task> を直接使用
 # =============================================================================
 
-.PHONY: setup dev dev-down test test-coverage lint fmt build deploy clean check info help
+.PHONY: setup dev dev-backend dev-frontend dev-down test test-backend test-frontend test-cli test-coverage lint lint-backend lint-frontend lint-cli fmt build clean check info db-up db-migrate db-status help
 
-## 初期セットアップ
 setup:
 	mise run setup
 
-## ローカル開発
 dev:
 	mise run dev
 
@@ -23,7 +21,6 @@ dev-frontend:
 dev-down:
 	mise run dev:down
 
-## テスト
 test:
 	mise run test
 
@@ -33,10 +30,12 @@ test-backend:
 test-frontend:
 	mise run test:frontend
 
+test-cli:
+	mise run test:cli
+
 test-coverage:
 	mise run test:coverage
 
-## 静的解析
 lint:
 	mise run lint
 
@@ -46,40 +45,15 @@ lint-backend:
 lint-frontend:
 	mise run lint:frontend
 
-## フォーマット
+lint-cli:
+	mise run lint:cli
+
 fmt:
 	mise run fmt
 
-## ビルド
 build:
 	mise run build
 
-## Cloud Run デプロイ
-deploy: build
-	@echo "Cloud Run へデプロイ中..."
-	gcloud run deploy webapp-template-api \
-		--source=./backend \
-		--region=asia-northeast1 \
-		--allow-unauthenticated
-	gcloud run deploy webapp-template-web \
-		--source=./frontend \
-		--region=asia-northeast1 \
-		--allow-unauthenticated
-
-## DB
-db-up:
-	mise run db:up
-
-db-migrate:
-	mise run db:migrate
-
-db-rollback:
-	mise run db:rollback
-
-db-status:
-	mise run db:status
-
-## ユーティリティ
 clean:
 	mise run clean
 
@@ -89,7 +63,15 @@ check:
 info:
 	mise run info
 
-## ヘルプ
+db-up:
+	mise run db:up
+
+db-migrate:
+	mise run db:migrate
+
+db-status:
+	mise run db:status
+
 help:
 	@echo "利用可能なタスク (mise run --list で詳細表示):"
 	@mise tasks ls

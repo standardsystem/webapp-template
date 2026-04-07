@@ -6,73 +6,9 @@ import (
 	"testing"
 
 	"github.com/your-org/webapp-template/internal/domain"
+	"github.com/your-org/webapp-template/internal/mock"
 	"github.com/your-org/webapp-template/internal/usecase"
 )
-
-// --- インメモリモック ---
-
-type mockUserRepository struct {
-	users  map[string]*domain.User
-	saveErr error
-	findErr error
-}
-
-func newMockUserRepository() *mockUserRepository {
-	return &mockUserRepository{users: make(map[string]*domain.User)}
-}
-
-func (m *mockUserRepository) FindByID(_ context.Context, id string) (*domain.User, error) {
-	if m.findErr != nil {
-		return nil, m.findErr
-	}
-	u, ok := m.users[id]
-	if !ok {
-		return nil, domain.ErrNotFound
-	}
-	return u, nil
-}
-
-func (m *mockUserRepository) FindAll(_ context.Context) ([]*domain.User, error) {
-	if m.findErr != nil {
-		return nil, m.findErr
-	}
-	result := make([]*domain.User, 0, len(m.users))
-	for _, u := range m.users {
-		result = append(result, u)
-	}
-	return result, nil
-}
-
-func (m *mockUserRepository) Save(_ context.Context, user *domain.User) error {
-	if m.saveErr != nil {
-		return m.saveErr
-	}
-	m.users[user.ID] = user
-	return nil
-}
-
-func (m *mockUserRepository) FindByEmail(_ context.Context, email string) (*domain.User, error) {
-	if m.findErr != nil {
-		return nil, m.findErr
-	}
-	for _, u := range m.users {
-		if u.Email == email {
-			return u, nil
-		}
-	}
-	return nil, domain.ErrNotFound
-}
-
-func (m *mockUserRepository) Delete(_ context.Context, id string) error {
-	delete(m.users, id)
-	return nil
-}
-
-func (m *mockUserRepository) Count(_ context.Context) (int64, error) {
-	return int64(len(m.users)), nil
-}
-
-// --- テスト ---
 
 func TestUserUsecase_CreateUser(t *testing.T) {
 	tests := []struct {
@@ -105,8 +41,8 @@ func TestUserUsecase_CreateUser(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			repo := newMockUserRepository()
-			repo.saveErr = tt.saveErr
+			repo := mock.NewUserRepository()
+			repo.SaveErr = tt.saveErr
 			uc := usecase.NewUserUsecase(repo)
 
 			got, err := uc.CreateUser(context.Background(), tt.input)
@@ -131,8 +67,8 @@ func TestUserUsecase_CreateUser(t *testing.T) {
 }
 
 func TestUserUsecase_GetUser(t *testing.T) {
-	repo := newMockUserRepository()
-	repo.users["user-1"] = &domain.User{ID: "user-1", Name: "テスト", Email: "test@example.com"}
+	repo := mock.NewUserRepository()
+	repo.Users["user-1"] = &domain.User{ID: "user-1", Name: "テスト", Email: "test@example.com"}
 	uc := usecase.NewUserUsecase(repo)
 
 	t.Run("正常系: 存在するユーザーを取得", func(t *testing.T) {

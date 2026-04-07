@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/your-org/webapp-template/internal/domain"
 )
 
@@ -29,7 +31,7 @@ type CreateUserInput struct {
 // CreateUser は新しいユーザーを作成します。
 func (u *UserUsecase) CreateUser(ctx context.Context, input CreateUserInput) (*domain.User, error) {
 	user := &domain.User{
-		ID:        generateID(), // TODO: UUID ライブラリを使用
+		ID:        generateID(),
 		Name:      input.Name,
 		Email:     input.Email,
 		Role:      domain.RoleMember,
@@ -67,6 +69,5 @@ func (u *UserUsecase) ListUsers(ctx context.Context) ([]*domain.User, error) {
 }
 
 func generateID() string {
-	// TODO: github.com/google/uuid を使用
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	return uuid.New().String()
 }

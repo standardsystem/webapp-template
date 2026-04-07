@@ -1,0 +1,9 @@
+{
+  // 共通設定: CI・mise pre-commit・エディタの参照元
+  // MD013 は URL やテーブルで頻発するため無効（必要なら段落単位で調整）
+  "config": {
+    "MD013": false
+  },
+  "globs": ["**/*.md"],
+  "ignores": ["node_modules/**", "frontend/node_modules/**"]
+}

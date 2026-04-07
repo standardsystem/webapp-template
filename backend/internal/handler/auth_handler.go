@@ -1,9 +1,9 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -12,19 +12,33 @@ import (
 	"github.com/your-org/webapp-template/internal/usecase"
 )
 
+// AuthService は AuthHandler が依存する認証ユースケースのインターフェースです。
+type AuthService interface {
+	GetAuthURL(providerName string) (authURL, state string, err error)
+	HandleCallback(ctx context.Context, providerName, code string) (*usecase.AuthCallbackResult, error)
+	GetCurrentUser(ctx context.Context, userID string) (*domain.User, error)
+	UpdateUserRole(ctx context.Context, targetUserID string, newRole domain.Role) error
+}
+
+// AuthHandlerConfig は AuthHandler の設定です。
+type AuthHandlerConfig struct {
+	SecureCookie    bool
+	FrontendOrigin  string
+}
+
 // AuthHandler は認証関連の HTTP ハンドラです。
 type AuthHandler struct {
-	authUsecase *usecase.AuthUsecase
-	secureCookie bool
+	authUsecase    AuthService
+	secureCookie   bool
+	frontendOrigin string
 }
 
 // NewAuthHandler は AuthHandler を生成します。
-func NewAuthHandler(authUsecase *usecase.AuthUsecase) *AuthHandler {
-	// 本番環境（HTTPS）では Secure フラグを有効にする
-	secure := os.Getenv("COOKIE_SECURE") == "true"
+func NewAuthHandler(authUsecase AuthService, cfg AuthHandlerConfig) *AuthHandler {
 	return &AuthHandler{
-		authUsecase:  authUsecase,
-		secureCookie: secure,
+		authUsecase:    authUsecase,
+		secureCookie:   cfg.SecureCookie,
+		frontendOrigin: cfg.FrontendOrigin,
 	}
 }
 
@@ -116,11 +130,7 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// フロントエンドにリダイレクト
-	frontendOrigin := os.Getenv("FRONTEND_ORIGIN")
-	if frontendOrigin == "" {
-		frontendOrigin = "http://localhost:5173"
-	}
-	http.Redirect(w, r, frontendOrigin, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, h.frontendOrigin, http.StatusTemporaryRedirect)
 }
 
 // handleLogout はログアウト処理を行います。

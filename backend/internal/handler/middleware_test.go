@@ -7,25 +7,8 @@ import (
 
 	"github.com/your-org/webapp-template/internal/domain"
 	"github.com/your-org/webapp-template/internal/handler"
+	"github.com/your-org/webapp-template/internal/mock"
 )
-
-// --- モック: SessionService ---
-
-type mockSessionService struct {
-	claims *domain.SessionClaims
-	err    error
-}
-
-func (m *mockSessionService) IssueToken(_ *domain.SessionClaims) (string, error) {
-	return "mock-token", nil
-}
-
-func (m *mockSessionService) ValidateToken(_ string) (*domain.SessionClaims, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return m.claims, nil
-}
 
 func TestAuthMiddleware(t *testing.T) {
 	tests := []struct {
@@ -56,7 +39,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockSessionService{claims: tt.claims, err: tt.valErr}
+			svc := &mock.SessionService{Claims: tt.claims, ValidErr: tt.valErr}
 			mw := handler.NewAuthMiddleware(svc)
 
 			var capturedUserID string
@@ -112,7 +95,7 @@ func TestRequireRole(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockSessionService{claims: tt.claims}
+			svc := &mock.SessionService{Claims: tt.claims}
 			authMW := handler.NewAuthMiddleware(svc)
 			roleMW := handler.RequireRole(tt.required)
 

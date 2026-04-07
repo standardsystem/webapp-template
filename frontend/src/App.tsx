@@ -1,39 +1,31 @@
-import { AuthProvider, useAuth } from '@/contexts/AuthContext'
-import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { UserList } from '@/components/UserList'
-import { useUsers } from '@/hooks/useUsers'
-
-function Dashboard() {
-  const { user, logout } = useAuth()
-  const { users, loading, error, refetch } = useUsers()
-
-  return (
-    <main>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Webapp Template</h1>
-        <div>
-          <span>{user?.name}（{user?.role}）</span>
-          <button onClick={logout} style={{ marginLeft: 12 }}>
-            ログアウト
-          </button>
-        </div>
-      </header>
-      <button onClick={refetch} disabled={loading}>
-        更新
-      </button>
-      <UserList users={users} loading={loading} error={error} />
-    </main>
-  )
-}
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { DashboardPage } from "@/pages/DashboardPage";
+import { LoginPage } from "@/pages/LoginPage";
 
 function App() {
   return (
-    <AuthProvider>
-      <ProtectedRoute>
-        <Dashboard />
-      </ProtectedRoute>
-    </AuthProvider>
-  )
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
+  );
 }
 
-export default App
+export default App;

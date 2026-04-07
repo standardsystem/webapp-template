@@ -23,14 +23,16 @@ type MicrosoftOAuthProvider struct {
 	clientID     string
 	clientSecret string
 	redirectURL  string
+	httpClient   *http.Client
 }
 
 // NewMicrosoftOAuthProvider は MicrosoftOAuthProvider を生成します。
-func NewMicrosoftOAuthProvider(clientID, clientSecret, redirectURL string) *MicrosoftOAuthProvider {
+func NewMicrosoftOAuthProvider(clientID, clientSecret, redirectURL string, httpClient *http.Client) *MicrosoftOAuthProvider {
 	return &MicrosoftOAuthProvider{
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		redirectURL:  redirectURL,
+		httpClient:   httpClient,
 	}
 }
 
@@ -66,7 +68,7 @@ func (m *MicrosoftOAuthProvider) Exchange(ctx context.Context, code string) (*do
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := m.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
@@ -98,7 +100,7 @@ func (m *MicrosoftOAuthProvider) UserInfo(ctx context.Context, token *domain.OAu
 	}
 	req.Header.Set("Authorization", "Bearer "+token.AccessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := m.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}

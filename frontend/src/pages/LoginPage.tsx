@@ -1,38 +1,31 @@
-import { authApi } from '@/lib/api'
+import { authApi } from "@/lib/api";
 
 const providers = [
-  { key: 'google', label: 'Google でログイン' },
-  { key: 'github', label: 'GitHub でログイン' },
-  { key: 'microsoft', label: 'Microsoft でログイン' },
-] as const
+  { key: "google", label: "Google でログイン" },
+  { key: "github", label: "GitHub でログイン" },
+  { key: "microsoft", label: "Microsoft でログイン" },
+] as const;
 
 export function LoginPage() {
   const handleLogin = (provider: string) => {
-    window.location.href = authApi.loginURL(provider)
-  }
+    window.location.href = authApi.loginURL(provider);
+  };
 
   return (
-    <main style={{ maxWidth: 400, margin: '80px auto', textAlign: 'center' }}>
-      <h1>Webapp Template</h1>
-      <p>ログインしてください</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 24 }}>
+    <main className="mx-auto mt-20 max-w-sm text-center">
+      <h1 className="mb-2 text-2xl font-bold">Webapp Template</h1>
+      <p className="mb-6 text-gray-600">ログインしてください</p>
+      <div className="flex flex-col gap-3">
         {providers.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => handleLogin(key)}
-            style={{
-              padding: '12px 24px',
-              fontSize: 16,
-              cursor: 'pointer',
-              border: '1px solid #ccc',
-              borderRadius: 8,
-              background: '#fff',
-            }}
+            className="cursor-pointer rounded-lg border border-gray-300 bg-white px-6 py-3 text-base hover:bg-gray-50"
           >
             {label}
           </button>
         ))}
       </div>
     </main>
-  )
+  );
 }

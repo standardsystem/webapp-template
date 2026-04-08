@@ -17,6 +17,10 @@ python = "3.14"       # スクリプト・ツール用
 uv   = "latest"       # Python 高速パッケージマネージャ
 pnpm = "latest"       # Node.js 高速パッケージマネージャ
 
+# ── クラウド・ホスティング CLI ──────────────────────────────
+gh     = "2.89.0"     # GitHub CLI（aqua:cli/cli）
+gcloud = "564.0.0"    # Google Cloud SDK（vfox:mise-plugins/vfox-gcloud）
+
 # ── Go 開発ツール ──────────────────────────────────────────
 "go:github.com/golangci/golangci-lint/cmd/golangci-lint" = "2.11"
 "go:github.com/air-verse/air"                            = "latest"
@@ -206,4 +210,6 @@ node --version
 python --version
 pnpm --version
 uv --version
+gh --version
+gcloud --version
 """

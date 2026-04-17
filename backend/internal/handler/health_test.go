@@ -32,7 +32,7 @@ func TestHealth(t *testing.T) {
 			handler.Health(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != tt.wantStatusCode {
 				t.Errorf("StatusCode = %d, want %d", resp.StatusCode, tt.wantStatusCode)

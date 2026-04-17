@@ -22,8 +22,8 @@ gh     = "2.89.0"     # GitHub CLI（aqua:cli/cli）
 gcloud = "564.0.0"    # Google Cloud SDK（vfox:mise-plugins/vfox-gcloud）
 
 # ── Go 開発ツール ──────────────────────────────────────────
-"go:github.com/golangci/golangci-lint/cmd/golangci-lint" = "2.11"
-"go:github.com/air-verse/air"                            = "latest"
+golangci-lint                 = "2.6.2"
+"go:github.com/air-verse/air" = "latest"
 # goose は不要（マイグレーションはサーバー起動時に自動適用）
 
 # ── Markdown（.markdownlint-cli2.jsonc）──────────────────

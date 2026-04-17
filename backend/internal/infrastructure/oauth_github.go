@@ -70,7 +70,7 @@ func (g *GitHubOAuthProvider) Exchange(ctx context.Context, code string) (*domai
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -105,7 +105,7 @@ func (g *GitHubOAuthProvider) UserInfo(ctx context.Context, token *domain.OAuthT
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -157,7 +157,7 @@ func (g *GitHubOAuthProvider) fetchPrimaryEmail(ctx context.Context, accessToken
 	if err != nil {
 		return "", fmt.Errorf("failed to get emails: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var emails []struct {
 		Email    string `json:"email"`

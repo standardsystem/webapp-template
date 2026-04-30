@@ -6,8 +6,6 @@ services:
     command: go run ./cmd/server
     ports:
       - "8080:8080"
-    volumes:
-      - ./backend:/app
     environment:
       PORT: "8080"
       FRONTEND_ORIGIN: "http://localhost:5173"
@@ -39,11 +37,19 @@ services:
     command: pnpm dev --host
     ports:
       - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     environment:
       VITE_API_URL: "http://localhost:8080"
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/pnpm-lock.yaml
 
   db:
     image: postgres:17-alpine

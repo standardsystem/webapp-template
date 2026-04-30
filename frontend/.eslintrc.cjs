@@ -8,7 +8,7 @@ module.exports = {
     "plugin:@typescript-eslint/recommended",
     "plugin:react-hooks/recommended",
   ],
-  ignorePatterns: ["dist", "coverage"],
+  ignorePatterns: ["dist", "coverage", "vite.config.js", "vite.config.d.ts", "*.tsbuildinfo"],
   parser: "@typescript-eslint/parser",
   parserOptions: {
     ecmaVersion: "latest",

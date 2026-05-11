@@ -15,6 +15,34 @@ mise run setup
 
 `setup` は Go モジュール（backend / cli）の取得とフロントの `pnpm install` を行います。
 
+## mise の起動方式（shims 推奨）
+
+本テンプレートでは `mise activate` ではなく **shims 方式** を推奨します。
+shims を `PATH` に静的に追加するだけで、非対話シェル・IDE 統合・サブプロセス
+（例: Docker build から呼ばれる `pnpm`、エディタからの lint 実行）でも常に
+同じツールが解決されます。
+
+### PowerShell（Windows）
+
+`$PROFILE`（通常は `Documents\PowerShell\Microsoft.PowerShell_profile.ps1`）に追記:
+
+```powershell
+$miseShims = "$env:LOCALAPPDATA\mise\shims"
+if ((Test-Path $miseShims) -and ($env:PATH -notlike "*$miseShims*")) {
+    $env:PATH = "$miseShims;$env:PATH"
+}
+```
+
+### Bash / Zsh
+
+`~/.bashrc` または `~/.zshrc` に追記:
+
+```bash
+export PATH="$HOME/.local/share/mise/shims:$PATH"
+```
+
+`.mise.toml` に新しいツールを追加した後は `mise reshim` を実行してください。
+
 ## よく使うコマンド
 
 ```bash
@@ -46,12 +74,8 @@ pre-commit install
 
 ## Cloud Run
 
-GitHub Actions（`deploy.yml`）から Cloud Run へデプロイする場合、リポジトリの Secrets に次を設定します。
-
-| Secret | 説明 |
-|--------|------|
-| `GCP_PROJECT_ID` | Google Cloud プロジェクト ID |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Workload Identity Federation のプロバイダー |
-| `GCP_SERVICE_ACCOUNT` | デプロイ用サービスアカウント |
+デプロイ手順、必要な GitHub Secrets / Variables、Google Cloud IAM、Artifact Registry、
+Secret Manager、Cloud SQL 接続方式、frontend の `${PORT}` 対応については
+[deployment.md](deployment.md) を参照してください。
 
 ローカルからの手動デプロイはルートの `Makefile` の `make deploy` を参照してください。

@@ -14,8 +14,8 @@ node   = "24"         # Dockerfile node:24-alpine と一致 (Active LTS)
 python = "3.14"       # スクリプト・ツール用
 
 # ── パッケージマネージャ ───────────────────────────────────
-uv   = "latest"       # Python 高速パッケージマネージャ
-pnpm = "latest"       # Node.js 高速パッケージマネージャ
+uv   = "0.11.3"       # Python 高速パッケージマネージャ
+pnpm = "10.33.0"      # Node.js 高速パッケージマネージャ（frontend/package.json packageManager と一致）
 
 # ── クラウド・ホスティング CLI ──────────────────────────────
 gh     = "2.89.0"     # GitHub CLI（aqua:cli/cli）
@@ -23,9 +23,8 @@ gcloud = "564.0.0"    # Google Cloud SDK（vfox:mise-plugins/vfox-gcloud）
 
 # ── Go 開発ツール ──────────────────────────────────────────
 golangci-lint                 = "2.11.4"
-"go:github.com/air-verse/air" = "latest"
-# DB マイグレーションは golang-migrate を採用（ADR 0001）。
-# CLI は backend モジュールに含まれるため、`go run ./cmd/migrate` で実行する。
+"go:github.com/air-verse/air" = "v1.65.0"
+# goose は不要（マイグレーションはサーバー起動時に自動適用）
 
 # ── Markdown（.markdownlint-cli2.jsonc）──────────────────
 "npm:markdownlint-cli2" = "0.17.2"

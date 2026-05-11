@@ -1,4 +1,17 @@
 services:
+  # 起動時に DB マイグレーションを 1 度だけ実行する short-lived service。
+  # 本番では Cloud Run Job としてデプロイされ、deploy パイプラインの一部として実行される。
+  migrate:
+    build:
+      context: ./backend
+      target: builder
+    command: go run ./cmd/migrate up
+    environment:
+      DATABASE_URL: "postgres://postgres:password@db:5432/webapp?sslmode=disable"
+    depends_on:
+      db:
+        condition: service_healthy
+
   backend:
     build:
       context: ./backend
@@ -24,6 +37,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     develop:
       watch:
         - action: sync+restart

@@ -18,7 +18,6 @@ import (
 	"github.com/your-org/webapp-template/internal/domain"
 	"github.com/your-org/webapp-template/internal/handler"
 	"github.com/your-org/webapp-template/internal/infrastructure"
-	"github.com/your-org/webapp-template/migrations"
 	"github.com/your-org/webapp-template/internal/repository"
 	"github.com/your-org/webapp-template/internal/usecase"
 )
@@ -49,16 +48,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
-
-	migrations, err := loadMigrations()
-	if err != nil {
-		slog.Error("failed to load migrations", "err", err)
-		os.Exit(1)
-	}
-	if err := infrastructure.RunMigrations(ctx, pool, migrations); err != nil {
-		slog.Error("failed to run migrations", "err", err)
-		os.Exit(1)
-	}
 
 	// --- セッションサービス ---
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -190,26 +179,4 @@ func main() {
 		slog.Error("shutdown error", "err", err)
 	}
 	slog.Info("server stopped")
-}
-
-func loadMigrations() ([]infrastructure.MigrationFile, error) {
-	entries, err := migrations.FS.ReadDir(".")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read migrations dir: %w", err)
-	}
-	var files []infrastructure.MigrationFile
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		content, err := migrations.FS.ReadFile(e.Name())
-		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", e.Name(), err)
-		}
-		files = append(files, infrastructure.MigrationFile{
-			Name:    e.Name(),
-			Content: string(content),
-		})
-	}
-	return files, nil
 }

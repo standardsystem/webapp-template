@@ -11,6 +11,11 @@ env:
   GCP_REGION: asia-northeast1
   BACKEND_SERVICE: webapp-template-api
   FRONTEND_SERVICE: webapp-template-web
+  # 案件ごとに GitHub Repository Variables へ設定する値
+  #   FRONTEND_ORIGIN: フロントエンド公開 URL（例: https://app.example.com）
+  #   BACKEND_ORIGIN:  バックエンド公開 URL（例: https://api.example.com） OAuth redirect URL の組立に使用
+  FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
+  BACKEND_ORIGIN: ${{ vars.BACKEND_ORIGIN }}
 
 jobs:
   # CI が成功した場合のみデプロイを実行
@@ -51,6 +56,11 @@ jobs:
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
 
+      - name: Validate required variables
+        run: |
+          : "${FRONTEND_ORIGIN:?vars.FRONTEND_ORIGIN must be set in repository variables}"
+          : "${BACKEND_ORIGIN:?vars.BACKEND_ORIGIN must be set in repository variables}"
+
       - name: Deploy Backend to Cloud Run
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/webapp/${{ env.BACKEND_SERVICE }}:${{ github.sha }}"
@@ -59,8 +69,8 @@ jobs:
             --region=${{ env.GCP_REGION }} \
             --platform=managed \
             --allow-unauthenticated \
-            --set-secrets="JWT_SECRET=jwt-secret:latest,GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest,GITHUB_CLIENT_ID=github-client-id:latest,GITHUB_CLIENT_SECRET=github-client-secret:latest" \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},COOKIE_SECURE=true" \
+            --set-secrets="DATABASE_URL=database-url:latest,JWT_SECRET=jwt-secret:latest,GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest,GITHUB_CLIENT_ID=github-client-id:latest,GITHUB_CLIENT_SECRET=github-client-secret:latest,MICROSOFT_CLIENT_ID=microsoft-client-id:latest,MICROSOFT_CLIENT_SECRET=microsoft-client-secret:latest" \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},FRONTEND_ORIGIN=${{ env.FRONTEND_ORIGIN }},COOKIE_SECURE=true,GOOGLE_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/google/callback,GITHUB_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/github/callback,MICROSOFT_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/microsoft/callback" \
             --memory=512Mi \
             --cpu=1 \
             --min-instances=0 \

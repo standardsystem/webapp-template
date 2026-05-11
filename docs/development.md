@@ -46,12 +46,8 @@ pre-commit install
 
 ## Cloud Run
 
-GitHub Actions（`deploy.yml`）から Cloud Run へデプロイする場合、リポジトリの Secrets に次を設定します。
-
-| Secret | 説明 |
-|--------|------|
-| `GCP_PROJECT_ID` | Google Cloud プロジェクト ID |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Workload Identity Federation のプロバイダー |
-| `GCP_SERVICE_ACCOUNT` | デプロイ用サービスアカウント |
+デプロイ手順、必要な GitHub Secrets / Variables、Google Cloud IAM、Artifact Registry、
+Secret Manager、Cloud SQL 接続方式、frontend の `${PORT}` 対応については
+[deployment.md](deployment.md) を参照してください。
 
 ローカルからの手動デプロイはルートの `Makefile` の `make deploy` を参照してください。

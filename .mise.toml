@@ -171,12 +171,19 @@ description = "DB コンテナのみ起動"
 run = "docker compose up -d db"
 
 [tasks."db:migrate"]
-description = "DB マイグレーション実行（サーバー起動で自動適用）"
+description = "DB マイグレーション実行（golang-migrate）"
 depends = ["db:up"]
-run = """
-echo "マイグレーションはサーバー起動時に自動適用されます。"
-echo "手動で確認するには: mise run db:status"
-"""
+run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate up"
+
+[tasks."db:migrate:down"]
+description = "DB マイグレーションを 1 つ戻す（golang-migrate）"
+depends = ["db:up"]
+run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate down"
+
+[tasks."db:migrate:version"]
+description = "DB マイグレーションの現在バージョンを表示"
+depends = ["db:up"]
+run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate version"
 
 [tasks."db:status"]
 description = "DB マイグレーション状態確認"

@@ -10,7 +10,7 @@
 [tools]
 # ── ランタイム ──────────────────────────────────────────────
 go     = "1.26"       # go.mod / Dockerfile と一致
-node   = "24"         # Dockerfile node:24-alpine と一致 (Active LTS)
+node   = "24"         # Dockerfile node:24-trixie-slim と一致 (Active LTS)
 python = "3.14"       # スクリプト・ツール用
 
 # ── パッケージマネージャ ───────────────────────────────────

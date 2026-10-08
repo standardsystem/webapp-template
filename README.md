@@ -100,4 +100,4 @@ GitHub Secrets と手順の詳細は [docs/development.md](docs/development.md) 
 ## AI との協働
 
 - エージェント向けの指示は [AGENTS.md](AGENTS.md) と、各パッケージの `AGENTS.md`（[backend](backend/AGENTS.md) / [frontend](frontend/AGENTS.md) / [cli](cli/AGENTS.md)）
-- `CLAUDE.md` は置かない。Claude Code は v2.1.277 以降が必要。構成の説明は [docs/ai-agents.md](docs/ai-agents.md)
+- `CLAUDE.md` は置かない。Claude Code は v2.1.281 以降が必要。構成の説明は [docs/ai-agents.md](docs/ai-agents.md)

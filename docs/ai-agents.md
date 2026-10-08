@@ -26,10 +26,12 @@ cli/AGENTS.md        Go CLI の規約
 
 ## Claude Code での読み込み
 
-Claude Code は **v2.1.277 以降** が必要です。それより前のバージョンは `AGENTS.md` を読まないため、サポートしません。
+Claude Code は **v2.1.281 以降** が必要です。それより前のバージョンはサポートしません。
+`AGENTS.md` の直接読み込みは v2.1.277 で入りましたが、v2.1.280 までは Amazon Bedrock 利用時やテレメトリ無効時など、
+一部のセッションで `AGENTS.md` が読み込まれません。
 `claude --version` で確認し、古い場合は更新してください。
 
-v2.1.277 以降の Claude Code は、`CLAUDE.md` がないリポジトリでは `AGENTS.md` を直接読みます。
+v2.1.281 以降の Claude Code は、`CLAUDE.md` がないリポジトリでは `AGENTS.md` を直接読みます。
 
 - セッション開始時に、作業ディレクトリとその上位にある `AGENTS.md` を読みます。
 - サブディレクトリの `AGENTS.md` は、そのディレクトリのファイルを開いたときに読みます。

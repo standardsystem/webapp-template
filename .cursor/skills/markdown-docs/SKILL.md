@@ -10,12 +10,12 @@ description: >-
 ## いつ使うか
 
 - `docs/` またはルートの `*.md` を新規・大幅更新するとき
-- README / AGENTS / CLAUDE まわりを触るとき
+- README / AGENTS まわりを触るとき
 
 ## 手順
 
 1. `.cursor/rules/markdown.mdc` のチェックリストに沿って書く。
-2. 人向けの長文は `docs/` に置き、ルートは概要とリンクに留める（`AGENTS.md` / `CLAUDE.md` と矛盾させない）。
+2. 人向けの長文は `docs/` に置く。エージェント向けの指示は `AGENTS.md` に書き、`CLAUDE.md` は作らない（`docs/ai-agents.md`）。
 3. 完了前にリポジトリルートで `mise run fmt:markdown` と `mise run lint:markdown` を実行し、修正可能な違反は直す。
 4. `lint:markdown` が通らない場合は、設定で緩めているルール（例: `MD013`）以外は本文側を直す。
 

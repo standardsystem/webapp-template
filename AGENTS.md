@@ -1,48 +1,56 @@
-# AGENTS.md — AI エージェント共通設定（要約）
+# AGENTS.md
 
-> **完全版:** [docs/AGENTS.md](docs/AGENTS.md)（テスト例・API 規約・詳細マップ）
+Go API（`backend/`）+ Go CLI（`cli/`）+ React（`frontend/`）のモノレポテンプレートです。
+このファイルは Claude Code / Codex / Cursor などが共通で読む、リポジトリ全体の指示です。
+各パッケージ固有の規約は `backend/AGENTS.md`・`frontend/AGENTS.md`・`cli/AGENTS.md` にあります。
 
----
+## 構成
 
-## Agent Identity
+```text
+backend/    Go API（クリーンアーキテクチャ、独立モジュール）
+cli/        Go CLI（独立モジュール）
+frontend/   React + Vite + TypeScript
+docs/       人向けマニュアル
+go.work     backend / cli の Go ワークスペース
+.mise.toml  ツールのバージョン固定とタスク定義
+```
 
-- Go API（`backend/`）・Go CLI（`cli/`）・React（`frontend/`）の実装とテスト
-- CI/CD とハーネス（生成コードの自動検証）
+## コマンド
 
-詳細な責務は [docs/AGENTS.md](docs/AGENTS.md) を参照してください。
+ツールとタスクは mise で管理します。リポジトリルートで実行してください。
 
----
+```bash
+mise run setup          # 初回セットアップ（Go モジュール取得 + pnpm install）
+mise run dev            # Docker Compose で API + フロント + DB を起動
+mise run test           # backend + cli + frontend のテスト
+mise run lint           # golangci-lint + eslint + tsc + markdownlint
+mise run fmt            # gofmt + Prettier + markdownlint --fix
+mise run check          # lint + test（CI 相当）
+mise run db:migrate     # DB マイグレーション適用
+```
 
-## Constraints（制約）
+パッケージ単位のタスクは `test:backend`・`lint:frontend`・`test:cli` のように `:` で絞れます。
+一覧は `.mise.toml` を参照してください。
 
-### やってはいけないこと
+## 必ず守ること
 
-- `internal/domain/` 以外にビジネスロジックを書くこと
-- テストなしで実装コードを追加すること
-- `any` 型（TypeScript）や `interface{}` （Go）を安易に使うこと
-- 秘密情報をコードに直書きすること
-- `main` ブランチへの直接プッシュ
-- 既存のテストを削除・無効化すること（スキップは理由を明記）
+- 実装を追加・変更したら、同じ変更でテストも追加・更新する。
+- 完了を報告する前に、触ったパッケージの lint とテストを実行して通す。
+- エラーを握りつぶさない。Go では `_ = err` を書かず、上位へ返す。
+- 既存のテストを削除・無効化しない。スキップする場合は理由をコードに書く。
+- 秘密情報をコードやコミットに含めない。環境変数を追加したら `.env.example` にも追記する。
+- `main` へ直接プッシュしない。ブランチを切って PR を出す。
+- 大きな変更は小さなステップに分けて提案する。
 
-### 必ずやること
+## コミットと PR
 
-- 新しい関数・メソッドには必ずユニットテストを追加する
-- エラーは握りつぶさない（Go: `_ = err` 禁止）
-- 環境変数は `.env.example` に追記する
-- 破壊的変更は PR の説明に明記する
-- 人間向けの長文マニュアルは `docs/` に置く
+- コミットは Conventional Commits 形式（`feat:` `fix:` `docs:` `test:` `refactor:` `chore:`）。
+- ブランチ名は `feat/xxx`・`fix/xxx`・`docs/xxx` のように種別を先頭に付ける。
+- PR は 400 行以内を目安にし、破壊的変更は説明に明記する。
 
----
+## ドキュメント
 
-## リポジトリの正規ドキュメント
-
-- マニュアル索引: [docs/README.md](docs/README.md)
-- Claude / 開発の詳細: [docs/CLAUDE.md](docs/CLAUDE.md)
-- Markdown 規約: `.markdownlint-cli2.jsonc`（`MD013` は無効）
-
----
-
-## Commit & PR（要約）
-
-- ブランチ名: `feat/xxx`, `fix/xxx`, `test/xxx`
-- レビュー前に `mise run check` を通す
+- 人向けの長い手順書は `docs/` に置く。索引は `docs/README.md`。
+- Markdown は `.markdownlint-cli2.jsonc` に従う（行長 `MD013` は無効）。編集後は `mise run lint:markdown` を通す。
+- セットアップは `docs/development.md`、デプロイは `docs/deployment.md`、マイグレーションは `docs/migration.md`。
+- 指示ファイルの置き方は `docs/ai-agents.md`。`CLAUDE.md` は作らない。このファイルは 200 行以内に保ち、パッケージ固有の内容は各パッケージの `AGENTS.md` に書く。

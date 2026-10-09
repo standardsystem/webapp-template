@@ -34,7 +34,7 @@ mise run setup
 mise run dev
 ```
 
-- フロントエンド: [http://localhost:5173](http://localhost:5173)
+- フロントエンド: [http://localhost:5173](http://localhost:5173)（`/api` はバックエンドへ転送される）
 - バックエンド: [http://localhost:8080](http://localhost:8080)
 - ヘルス: [http://localhost:8080/health](http://localhost:8080/health)
 

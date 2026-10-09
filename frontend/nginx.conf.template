@@ -3,6 +3,37 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # API はバックエンドへリバースプロキシする。
+    # ブラウザから見てフロントと API が同一オリジンになるため、セッション Cookie（SameSite=Lax）が
+    # そのまま送られ、CORS も不要になる。開発時の Vite のプロキシ（vite.config.ts）と同じ形。
+    #
+    # BACKEND_URL は起動時に envsubst で展開される（例: https://webapp-template-api-xxxxx.a.run.app）。
+    # 末尾にパスを付けないこと。付けると /api/v1/... が書き換えられる。
+    # ^~ を付けて、下のキャッシュ用の正規表現 location より優先させる。
+    location ^~ /api/ {
+        proxy_pass ${BACKEND_URL};
+
+        # Host ヘッダーは proxy_pass のホスト名になる（nginx の既定）。Cloud Run はこの Host で
+        # サービスを振り分けるため、ブラウザの Host をそのまま渡してはいけない。
+        # HTTPS のバックエンドには SNI でも同じホスト名を伝える。
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # バックエンドのタイムアウト（30 秒）より少し長くする
+        proxy_read_timeout 35s;
+    }
+
+    # バックエンドのヘルスチェック（CLI の health コマンドと healthApi.check が使う）
+    location = /health {
+        proxy_pass ${BACKEND_URL};
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+    }
+
     # SPA ルーティング対応
     location / {
         try_files $uri $uri/ /index.html;

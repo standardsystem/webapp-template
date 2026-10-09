@@ -111,3 +111,7 @@ jobs:
 
       - name: Build
         run: mise run build:frontend:dist
+
+      # 本番イメージをビルドし、/api のリバースプロキシを含む nginx の設定を検査する
+      - name: Check nginx config in the production image
+        run: mise run test:frontend:image

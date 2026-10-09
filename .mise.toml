@@ -225,6 +225,13 @@ description = "フロントエンドの Docker イメージビルド"
 dir = "frontend"
 run = "docker build -t webapp-frontend ."
 
+# nginx.conf.template を実際のイメージで展開し、設定として正しいかを nginx -t で確認する。
+# proxy_pass のホスト名は起動時に名前解決されるため、解決できる URL を渡している。
+[tasks."test:frontend:image"]
+description = "フロントエンドの本番イメージで nginx の設定を検査"
+depends = ["build:frontend"]
+run = "docker run --rm -e BACKEND_URL=https://example.com webapp-frontend nginx -t"
+
 [tasks."build:frontend:dist"]
 description = "フロントエンドの本番ビルド（tsc -b + vite build）"
 dir = "frontend"
@@ -287,7 +294,7 @@ run = "node -e \"for (const f of ['dist', 'coverage']) fs.rmSync(f, { recursive:
 
 [tasks.check]
 description = "CI と同じチェック（lint + test + 統合テスト + 脆弱性検査 + フロントのビルド）"
-depends = ["lint", "test", "test:integration", "vuln", "build:frontend:dist"]
+depends = ["lint", "test", "test:integration", "test:frontend:image", "vuln", "build:frontend:dist"]
 
 [tasks.info]
 description = "現在の開発環境情報を表示"

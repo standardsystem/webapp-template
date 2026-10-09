@@ -12,6 +12,30 @@
 
 `webapp-template-api` / `webapp-template-web` は案件ごとに `deploy.yml` の `env:` で書き換えてください。
 
+## フロントエンドから API への経路
+
+利用者のブラウザは frontend のオリジンだけを開きます。frontend の nginx が `/api/` と `/health` を backend へリバースプロキシします。
+
+```text
+ブラウザ ──https──▶ frontend (nginx) ──/api/*, /health──▶ backend (Go API)
+                        └─ それ以外は静的ファイル（SPA）
+```
+
+- フロントのコード（`frontend/src/lib/api.ts`）は相対パス `/api/v1` を呼びます。ブラウザから見てフロントと API が同一オリジンになるため、セッション Cookie（`SameSite=Lax`）がそのまま送られ、CORS の設定に依存しません。
+- カスタムドメインがなくても、Cloud Run の既定の URL（`*.run.app`）のままで動きます。`*.run.app` は Public Suffix のため、frontend と backend を別オリジンのまま使うと Cookie が送られません。
+- プロキシ先は frontend の環境変数 `BACKEND_URL` です。`deploy.yml` の `deploy-frontend` が、直前にデプロイした backend の URL を `gcloud run services describe` で取得して渡します。手で設定する値はありません。
+- OAuth のコールバックも frontend のオリジンで受けます。各プロバイダの管理画面には `${FRONTEND_ORIGIN}/api/v1/auth/{google|github|microsoft}/callback` を登録してください。
+- 開発時は Vite の開発サーバーが同じ役割をします（`frontend/vite.config.ts` の `server.proxy`）。転送先は `API_PROXY_TARGET` で、Docker Compose では `http://backend:8080` を渡しています。
+
+この方式の制約:
+
+- API の通信が frontend のインスタンスを経由するため、その分の遅延と課金が増えます。
+- backend のサービスは `--allow-unauthenticated` のまま公開されています。backend の URL を直接開いても、Cookie のオリジンが違うためログイン済みの操作はできませんが、到達はできます。
+- nginx は起動時に `BACKEND_URL` のホスト名を名前解決します。backend のサービス名を変えたときは frontend も再デプロイしてください（`deploy.yml` は毎回両方をデプロイします）。
+
+社内向けに IAP や Cloud Armor が必要な案件は、外部 HTTPS ロードバランサーでパスを振り分ける構成（`/api/*` → backend、それ以外 → frontend）へ移行してください。
+同一オリジンのままなので、フロントのコードと Cookie の設計は変えずに済みます。その場合は `nginx.conf.template` の `/api/` と `/health` の `location` を削除します。
+
 ## GitHub 側の設定
 
 デプロイには **Secrets** と **Variables** の両方を設定する必要があります。
@@ -30,13 +54,14 @@ URL 系の値は機密ではないため Secrets ではなく Variables に置�
 
 | Variable 名 | 用途 | 例 |
 |---|---|---|
-| `FRONTEND_ORIGIN` | フロントエンド公開 URL。CORS / Cookie 検証で使用 | `https://app.example.com` |
-| `BACKEND_ORIGIN` | バックエンド公開 URL。OAuth redirect URL の組立に使用 | `https://api.example.com` |
+| `FRONTEND_ORIGIN` | 利用者が開く公開 URL（frontend のオリジン）。ログイン後のリダイレクト先と、OAuth redirect URL の組立に使用 | `https://app.example.com` |
 | `MICROSOFT_TENANT_ID` | Microsoft でのサインインを許可する Entra テナントの ID かドメイン。Microsoft を使うときだけ設定する | `contoso.onmicrosoft.com` |
 | `INITIAL_ADMIN_EMAILS` | 初回ログインで `admin` にするメールアドレス（カンマ区切り） | `taro@example.co.jp,hanako@example.co.jp` |
 | `ALLOWED_EMAIL_DOMAINS` | ログインを許可するメールのドメイン（カンマ区切り） | `example.co.jp` |
 
-`FRONTEND_ORIGIN` と `BACKEND_ORIGIN` が未設定だと、`deploy.yml` の `Validate required variables` ステップが失敗します。
+`FRONTEND_ORIGIN` が未設定だと、`deploy.yml` の `Validate required variables` ステップが失敗します。
+カスタムドメインを使わない場合は、frontend の Cloud Run サービスの URL（`https://<サービス名>-<プロジェクト番号>.<リージョン>.run.app`）を設定します。
+初回は frontend をまだデプロイしていないため、Cloud Run のコンソールか `gcloud run services describe` で URL を確認してから設定し、もう一度デプロイしてください。
 
 バックエンドは、プロバイダが確認したメールアドレスでだけ新規ユーザーを作成します。
 Microsoft Graph が返すメールアドレスはテナントの管理者が任意の値に設定できるため、`MICROSOFT_TENANT_ID` で自組織のテナントに限定したときだけ受け付けます。
@@ -153,14 +178,16 @@ VPC 内の他のリソースと組み合わせる場合や、private IP のみ�
 
 > 詳細は <https://cloud.google.com/sql/docs/postgres/connect-run> を参照。
 
-## frontend の `${PORT}` 対応
+## frontend の `${PORT}` と `${BACKEND_URL}`
 
-[`frontend/Dockerfile`](../frontend/Dockerfile) は nginx 公式イメージの template 機能を利用して `${PORT}` を起動時に置換します。
+[`frontend/Dockerfile`](../frontend/Dockerfile) は nginx 公式イメージの template 機能を利用して `${PORT}` と `${BACKEND_URL}` を起動時に置換します。
 
 - `frontend/nginx.conf.template` の `listen ${PORT};` が起動時に envsubst で展開される
 - 既定値 `PORT=8080` が `Dockerfile` の `ENV` で設定されており、Cloud Run のデフォルト port と一致
 - 別 port で起動したい場合 (例: 開発時) は `docker run -e PORT=3000 -p 3000:3000 webapp-frontend`
-- `NGINX_ENVSUBST_FILTER=^PORT$` で envsubst の対象を `${PORT}` のみに限定し、nginx の `$uri` などを誤置換しない
+- `proxy_pass ${BACKEND_URL};` も同じ仕組みで展開される。`BACKEND_URL` にはパスを付けない（例: `https://webapp-template-api-xxxxx.a.run.app`）
+- `NGINX_ENVSUBST_FILTER=^(PORT|BACKEND_URL)$` で envsubst の対象をこの 2 つに限定し、nginx の `$uri` などを誤置換しない
+- 手元で確認するときは `docker run -e BACKEND_URL=http://host.docker.internal:8080 -p 8080:8080 webapp-frontend`
 
 このため `deploy.yml` の frontend deploy では `--port` を指定していません (Cloud Run のデフォルト 8080 を使用)。
 

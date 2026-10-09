@@ -80,6 +80,7 @@ CI（`.github/workflows/ci.yml`）は `.mise.toml` のタスクを呼び出す�
 | Vitest とカバレッジしきい値 | `test:frontend` | ○ | ○ |
 | `scripts/` のテスト | `test:scripts` | ○ | ○ |
 | フロントの本番ビルド | `build:frontend:dist` | ○ | ○ |
+| フロントの本番イメージのビルドと nginx の設定検査 | `test:frontend:image` | ○ | ○ |
 | `pnpm audit --prod` | `audit:frontend` | ― | ○（失敗しても警告のみ） |
 
 `pnpm audit` だけは `mise run check` に含めていません。監査 API の障害や、自分の変更と関係のない新しい脆弱性の公開で失敗するためです。

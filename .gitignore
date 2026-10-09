@@ -6,6 +6,7 @@
 backend/coverage.out
 backend/coverage.html
 backend/server
+backend/tmp/
 cli/coverage.out
 cli/coverage.html
 cli/webapp-cli

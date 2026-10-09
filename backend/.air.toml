@@ -1,0 +1,22 @@
+# air — `mise run dev:backend` のホットリロード設定
+# https://github.com/air-verse/air
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/server ./cmd/server"
+  entrypoint = ["./tmp/server"]
+  include_ext = ["go"]
+  exclude_dir = ["tmp"]
+  exclude_regex = ["_test.go"]
+  log = "tmp/build-errors.log"
+  # Ctrl+C のときに SIGINT を送り、サーバーのグレースフルシャットダウンを通す（Windows では無視される）
+  send_interrupt = true
+  kill_delay = "2s"
+
+  [build.windows]
+    cmd = "go build -o ./tmp/server.exe ./cmd/server"
+    entrypoint = ['tmp\server.exe']
+
+[misc]
+  clean_on_exit = true

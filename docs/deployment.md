@@ -5,12 +5,24 @@
 
 ## 構成概要
 
-| サービス | Cloud Run service 名 (デフォルト) | ベースイメージ |
+| サービス | Cloud Run のリソース名 (デフォルト) | ベースイメージ |
 |---|---|---|
-| backend (Go API) | `webapp-template-api` | distroless |
-| frontend (React SPA) | `webapp-template-web` | `nginx:1.28-alpine` |
+| backend (Go API) | service `webapp-template-api` | distroless |
+| frontend (React SPA) | service `webapp-template-web` | `nginx:1.28-alpine` |
+| migrate (DB マイグレーション) | job `webapp-template-migrate` | distroless |
 
-`webapp-template-api` / `webapp-template-web` は案件ごとに `deploy.yml` の `env:` で書き換えてください。
+### 案件ごとに書き換える値
+
+リソース名は `deploy.yml` の `env:` で定義しています。案件ごとに書き換えてください。
+
+| `env:` のキー | 既定値 | 用途 |
+|---|---|---|
+| `BACKEND_SERVICE` | `webapp-template-api` | backend の Cloud Run service 名とイメージ名 |
+| `FRONTEND_SERVICE` | `webapp-template-web` | frontend の Cloud Run service 名とイメージ名 |
+| `MIGRATE_JOB` | `webapp-template-migrate` | マイグレーション用の Cloud Run Job 名とイメージ名 |
+| `GCP_REGION` | `asia-northeast1` | デプロイ先と Artifact Registry のリージョン |
+
+`MIGRATE_JOB` を変えたときは、[migration.md](migration.md) のコマンド例のジョブ名も読み替えてください。
 
 ## GitHub 側の設定
 

@@ -22,9 +22,13 @@ gh     = "2.89.0"     # GitHub CLI（aqua:cli/cli）
 gcloud = "564.0.0"    # Google Cloud SDK（vfox:mise-plugins/vfox-gcloud）
 
 # ── Go 開発ツール ──────────────────────────────────────────
-golangci-lint                 = "2.11.4"
-"go:github.com/air-verse/air" = "v1.65.0"
+golangci-lint                              = "2.11.4"
+"go:github.com/air-verse/air"              = "v1.65.0"
+"go:golang.org/x/vuln/cmd/govulncheck"     = "v1.8.0"
 # goose は不要（マイグレーションはサーバー起動時に自動適用）
+
+# ── GitHub Actions ─────────────────────────────────────────
+actionlint = "1.7.12"
 
 # ── Markdown（.markdownlint-cli2.jsonc）──────────────────
 "npm:markdownlint-cli2" = "0.17.2"
@@ -77,17 +81,25 @@ run = "docker compose down"
 
 [tasks.test]
 description = "全テスト実行"
-depends = ["test:backend", "test:cli", "test:frontend"]
+depends = ["test:backend", "test:cli", "test:frontend", "test:scripts"]
 
+# カバレッジのしきい値（%）は scripts/check-go-coverage.mjs の第 2 引数で指定する
 [tasks."test:backend"]
-description = "バックエンドテストのみ"
+description = "バックエンドテストのみ（カバレッジのしきい値を検査）"
 dir = "backend"
-run = "go test -v -race -cover ./..."
+run = [
+  "go test -v -race -coverprofile=coverage.out ./...",
+  "node ../scripts/check-go-coverage.mjs coverage.out 20",
+]
 
 [tasks."test:frontend"]
-description = "フロントエンドテストのみ"
+description = "フロントエンドテストのみ（カバレッジのしきい値を検査）"
 dir = "frontend"
-run = "pnpm test"
+run = "pnpm test:coverage"
+
+[tasks."test:scripts"]
+description = "scripts/ のテストのみ"
+run = "node --test \"scripts/*.test.mjs\""
 
 [tasks."test:cli"]
 description = "CLI のテストのみ"
@@ -121,10 +133,10 @@ run = "pnpm test:coverage"
 
 [tasks.lint]
 description = "静的解析（全体）"
-depends = ["lint:backend", "lint:cli", "lint:frontend", "lint:markdown"]
+depends = ["lint:backend", "lint:cli", "lint:frontend", "lint:markdown", "lint:actions"]
 
 [tasks."lint:backend"]
-description = "バックエンド Lint のみ"
+description = "バックエンド Lint のみ（gofmt の検査を含む）"
 dir = "backend"
 run = "golangci-lint run ./..."
 
@@ -134,13 +146,36 @@ dir = "frontend"
 run = ["pnpm lint", "pnpm type-check"]
 
 [tasks."lint:cli"]
-description = "CLI Lint のみ"
+description = "CLI Lint のみ（gofmt の検査を含む）"
 dir = "cli"
 run = "golangci-lint run ./..."
 
 [tasks."lint:markdown"]
 description = "Markdown（markdownlint-cli2）のみ"
 run = "markdownlint-cli2"
+
+[tasks."lint:actions"]
+description = "GitHub Actions ワークフロー（actionlint）のみ"
+run = "actionlint"
+
+[tasks.vuln]
+description = "Go の脆弱性検査（govulncheck）"
+depends = ["vuln:backend", "vuln:cli"]
+
+[tasks."vuln:backend"]
+description = "バックエンドの脆弱性検査"
+dir = "backend"
+run = "govulncheck ./..."
+
+[tasks."vuln:cli"]
+description = "CLI の脆弱性検査"
+dir = "cli"
+run = "govulncheck ./..."
+
+[tasks."audit:frontend"]
+description = "フロントエンドの依存パッケージの脆弱性検査（pnpm audit）"
+dir = "frontend"
+run = "pnpm audit --prod"
 
 [tasks.fmt]
 description = "コードフォーマット（Go + Prettier + Markdown）"
@@ -178,6 +213,11 @@ run = "docker build -t webapp-backend ."
 description = "フロントエンドの Docker イメージビルド"
 dir = "frontend"
 run = "docker build -t webapp-frontend ."
+
+[tasks."build:frontend:dist"]
+description = "フロントエンドの本番ビルド（tsc -b + vite build）"
+dir = "frontend"
+run = "pnpm build"
 
 [tasks."db:up"]
 description = "DB コンテナのみ起動"
@@ -227,8 +267,8 @@ dir = "frontend"
 run = "node -e \"for (const f of ['dist', 'coverage']) fs.rmSync(f, { recursive: true, force: true })\""
 
 [tasks.check]
-description = "CI 相当のチェック（lint + test）"
-depends = ["lint", "test"]
+description = "CI と同じチェック（lint + test + 脆弱性検査 + フロントのビルド）"
+depends = ["lint", "test", "vuln", "build:frontend:dist"]
 
 [tasks.info]
 description = "現在の開発環境情報を表示"

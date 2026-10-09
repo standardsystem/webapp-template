@@ -403,4 +403,3 @@ func TestAuthHandler_UpdateRole(t *testing.T) {
 		}
 	})
 }
-

@@ -6,117 +6,107 @@ on:
   pull_request:
     branches: [main, develop]
 
+# 検査の中身は .mise.toml のタスクに定義し、CI はそれを呼び出すだけにする。
+# ローカルの `mise run check` と同じコマンド・同じバージョンのツールで検査するため。
+env:
+  # 各ジョブは install_args で指定したツールだけを使う（gcloud などを毎回入れない）
+  MISE_AUTO_INSTALL: "false"
+  MISE_TASK_RUN_AUTO_INSTALL: "false"
+
 jobs:
-  # ---- Markdown ----
-  markdown:
-    name: Markdown
+  # ---- Markdown / GitHub Actions ワークフロー ----
+  docs:
+    name: Markdown & Workflows
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - uses: jdx/mise-action@v5
         with:
-          node-version: '24'
+          install_args: node npm:markdownlint-cli2 actionlint
+
       - name: Lint Markdown
-        run: npx --yes markdownlint-cli2@0.17.2
+        run: mise run lint:markdown
+
+      - name: Lint workflows
+        run: mise run lint:actions
+
+      - name: Test scripts
+        run: mise run test:scripts
 
   # ---- Go バックエンド ----
   backend-test:
     name: Backend Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      # Go は .mise.toml の "1.26" から最新のパッチに解決される（標準ライブラリの脆弱性修正を取り込むため）
+      - uses: jdx/mise-action@v5
         with:
-          # パッチまで固定する。'1.26' だと setup-go のマニフェスト反映待ちで標準ライブラリの脆弱性修正が遅れる
-          go-version: '1.26.9'
-          cache-dependency-path: backend/go.sum
+          install_args: go node golangci-lint go:golang.org/x/vuln/cmd/govulncheck
 
-      - name: Download dependencies
-        run: go mod download
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-backend-${{ runner.os }}-${{ hashFiles('backend/go.sum') }}
+          restore-keys: go-backend-${{ runner.os }}-
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: backend
+        run: mise run lint:backend
 
       - name: Vulnerability check
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./...
+        run: mise run vuln:backend
 
       - name: Test
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Check coverage
-        run: |
-          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
-          echo "Coverage: ${COVERAGE}%"
-          if (( $(echo "$COVERAGE < 20" | bc -l) )); then
-            echo "Coverage ${COVERAGE}% is below 20%"
-            exit 1
-          fi
+        run: mise run test:backend
 
   # ---- Go CLI ----
   cli-test:
     name: CLI Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: cli
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          # パッチまで固定する。'1.26' だと setup-go のマニフェスト反映待ちで標準ライブラリの脆弱性修正が遅れる
-          go-version: '1.26.9'
 
-      - name: Download dependencies
-        run: go mod download
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: go golangci-lint go:golang.org/x/vuln/cmd/govulncheck
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: cli
+        run: mise run lint:cli
+
+      - name: Vulnerability check
+        run: mise run vuln:cli
 
       - name: Test
-        run: go test -v -race -cover ./...
+        run: mise run test:cli
 
   # ---- React フロントエンド ----
   frontend-test:
     name: Frontend Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: jdx/mise-action@v5
         with:
-          node-version: '24'
+          install_args: node pnpm
 
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: frontend/package.json
-
+      # CI では pnpm install が --frozen-lockfile で動く
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: mise run setup:frontend
 
+      # 監査 API の障害でも CI を止めないよう、警告にとどめる
       - name: Audit dependencies
-        run: pnpm audit --prod || echo "::warning::pnpm audit failed (endpoint may be unavailable)"
-
-      - name: Type check
-        run: pnpm type-check
+        run: mise run audit:frontend || echo "::warning::pnpm audit failed (vulnerabilities found or endpoint unavailable)"
 
       - name: Lint
-        run: pnpm lint
+        run: mise run lint:frontend
 
       - name: Test with coverage
-        run: pnpm test:coverage
+        run: mise run test:frontend
 
       - name: Build
-        run: pnpm build
+        run: mise run build:frontend:dist

@@ -23,8 +23,8 @@ type AuthService interface {
 
 // AuthHandlerConfig は AuthHandler の設定です。
 type AuthHandlerConfig struct {
-	SecureCookie    bool
-	FrontendOrigin  string
+	SecureCookie   bool
+	FrontendOrigin string
 }
 
 // AuthHandler は認証関連の HTTP ハンドラです。

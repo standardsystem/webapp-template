@@ -52,7 +52,7 @@ mise run lint:markdown
 mise run fmt             # gofmt + Prettier + markdownlint --fix
 mise run fmt:markdown
 mise run build
-mise run check           # CI 相当（lint + test）
+mise run check           # CI と同じ検査（lint + test + govulncheck + フロントのビルド）
 mise run db:migrate
 mise run info
 

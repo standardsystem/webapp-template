@@ -54,7 +54,7 @@ mise run lint             # golangci + eslint + markdownlint 等
 mise run fmt              # gofmt + Prettier + markdownlint --fix
 mise run lint:markdown
 mise run fmt:markdown
-mise run check            # lint + test（CI 相当）
+mise run check            # CI と同じ検査（下の「CI との対応」を参照）
 mise run db:up            # DB コンテナのみ起動
 mise run db:migrate       # マイグレーション適用
 mise run db:migrate:version   # 現在のバージョンと dirty フラグを表示
@@ -62,6 +62,32 @@ mise run db:migrate:version   # 現在のバージョンと dirty フラグを�
 
 `make dev` や `make check` のように、同名の `make` ターゲットも使えます（`:` は `-` に読み替えます。例: `make db-migrate-version`）。
 実体は `.mise.toml` のタスクです。
+
+## CI との対応
+
+CI（`.github/workflows/ci.yml`）は `.mise.toml` のタスクを呼び出すだけです。
+ツールのバージョンも `.mise.toml` の `[tools]` から入れるため、ローカルの `mise run check` と同じ検査になります。
+
+| 検査 | タスク | `mise run check` | CI |
+| ---- | ------ | ---------------- | -- |
+| golangci-lint（gofmt の検査を含む） | `lint:backend`・`lint:cli` | ○ | ○ |
+| ESLint と `tsc --noEmit` | `lint:frontend` | ○ | ○ |
+| markdownlint | `lint:markdown` | ○ | ○ |
+| actionlint | `lint:actions` | ○ | ○ |
+| govulncheck | `vuln:backend`・`vuln:cli` | ○ | ○ |
+| Go のテストと backend のカバレッジしきい値 | `test:backend`・`test:cli` | ○ | ○ |
+| Vitest とカバレッジしきい値 | `test:frontend` | ○ | ○ |
+| `scripts/` のテスト | `test:scripts` | ○ | ○ |
+| フロントの本番ビルド | `build:frontend:dist` | ○ | ○ |
+| `pnpm audit --prod` | `audit:frontend` | ― | ○（失敗しても警告のみ） |
+
+`pnpm audit` だけは `mise run check` に含めていません。監査 API の障害や、自分の変更と関係のない新しい脆弱性の公開で失敗するためです。
+手元で確認するときは `mise run audit:frontend` を実行してください。
+
+gofmt 未適用のファイルがあると `lint:backend`・`lint:cli` が失敗します。`mise run fmt` で整形してください。
+
+Go のバージョンは `.mise.toml` で `1.26` と指定しており、CI では最新のパッチに解決されます。
+手元の Go が古いと、`mise run vuln` が標準ライブラリの脆弱性を報告します。その場合は `mise upgrade go` で更新してください。
 
 ## Markdown
 

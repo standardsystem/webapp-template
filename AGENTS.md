@@ -23,9 +23,9 @@ go.work     backend / cli の Go ワークスペース
 mise run setup          # 初回セットアップ（Go モジュール取得 + pnpm install）
 mise run dev            # Docker Compose で API + フロント + DB を起動
 mise run test           # backend + cli + frontend のテスト
-mise run lint           # golangci-lint + eslint + tsc + markdownlint
+mise run lint           # golangci-lint（gofmt 検査を含む）+ eslint + tsc + markdownlint + actionlint
 mise run fmt            # gofmt + Prettier + markdownlint --fix
-mise run check          # lint + test（CI 相当）
+mise run check          # CI と同じ検査（lint + test + govulncheck + フロントのビルド）
 mise run db:migrate     # DB マイグレーション適用
 ```
 

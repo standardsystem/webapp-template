@@ -53,9 +53,9 @@ func (a *AuthUsecase) GetAuthURL(providerName string) (authURL, state string, er
 
 // AuthCallbackResult はコールバック処理の結果です。
 type AuthCallbackResult struct {
-	User       *domain.User
+	User         *domain.User
 	SessionToken string
-	IsNewUser  bool
+	IsNewUser    bool
 }
 
 // HandleCallback は OAuth コールバックを処理し、ユーザーの upsert とセッション発行を行います。

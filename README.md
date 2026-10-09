@@ -52,7 +52,8 @@ mise run lint:markdown
 mise run fmt             # gofmt + Prettier + markdownlint --fix
 mise run fmt:markdown
 mise run build
-mise run check           # CI と同じ検査（lint + test + govulncheck + フロントのビルド）
+mise run test:integration  # backend の統合テスト（Docker でテスト用 DB を起動）
+mise run check           # CI と同じ検査（lint + test + 統合テスト + govulncheck + フロントのビルド）
 mise run db:migrate
 mise run info
 

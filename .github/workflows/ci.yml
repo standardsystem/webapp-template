@@ -59,8 +59,10 @@ jobs:
       - name: Vulnerability check
         run: mise run vuln:backend
 
-      - name: Test
-        run: mise run test:backend
+      # ユニットテストと DB を使う統合テストをまとめて実行し、カバレッジのしきい値を検査する。
+      # テスト用の PostgreSQL は、ローカルと同じく docker compose の db-test を使う。
+      - name: Test (unit + integration)
+        run: mise run test:integration
 
   # ---- Go CLI ----
   cli-test:

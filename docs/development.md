@@ -75,7 +75,8 @@ CI（`.github/workflows/ci.yml`）は `.mise.toml` のタスクを呼び出す�
 | markdownlint | `lint:markdown` | ○ | ○ |
 | actionlint | `lint:actions` | ○ | ○ |
 | govulncheck | `vuln:backend`・`vuln:cli` | ○ | ○ |
-| Go のテストと backend のカバレッジしきい値 | `test:backend`・`test:cli` | ○ | ○ |
+| Go のユニットテスト | `test:backend`・`test:cli` | ○ | ○（backend は下の統合テストに含めて実行） |
+| backend の統合テストとカバレッジしきい値（80%） | `test:integration` | ○ | ○ |
 | Vitest とカバレッジしきい値 | `test:frontend` | ○ | ○ |
 | `scripts/` のテスト | `test:scripts` | ○ | ○ |
 | フロントの本番ビルド | `build:frontend:dist` | ○ | ○ |
@@ -88,6 +89,21 @@ gofmt 未適用のファイルがあると `lint:backend`・`lint:cli` が失敗
 
 Go のバージョンは `.mise.toml` でパッチまで固定しています（`1.26` のような指定だと、mise は公開直後のリリースを選ばないため、修正版の取り込みが遅れます）。
 `mise run vuln` が標準ライブラリの脆弱性を報告したら、`.mise.toml` の `go` を「Fixed in」に示されたバージョンへ上げてください。
+
+## 統合テスト
+
+`backend/` の `*_integration_test.go`（`//go:build integration`）は、実際の PostgreSQL に対して実行します。
+
+```bash
+mise run test:integration   # テスト用 DB の起動 → マイグレーション → 全テスト → カバレッジ検査
+mise run db:test:down       # テスト用 DB を片付ける
+```
+
+- テスト用 DB は `docker-compose.yml` の `db-test`（ポート 5433、DB 名 `webapp_test`）です。テストがテーブルを空にするため、開発用の `db`（ポート 5432）とは別のコンテナにしています。
+- `db-test` のデータはコンテナ内の tmpfs にあり、コンテナを作り直すと消えます。
+- 別の PostgreSQL に対して実行したいときは、`TEST_DATABASE_URL` を設定します。その DB のテーブルは空になるので、開発や本番の DB を指定しないでください。
+- `mise run test:backend` は統合テストを含みません。DB を使わずに短時間で確認したいときに使います。
+- カバレッジのしきい値は 80% で、`backend/AGENTS.md` の目標と同じ値です。モック（`internal/mock`）とエントリポイント（`cmd`）は計測対象から外しています。
 
 ## Markdown
 

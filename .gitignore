@@ -4,6 +4,7 @@
 
 # Go
 backend/coverage.out
+backend/coverage.out.filtered
 backend/coverage.html
 backend/server
 backend/tmp/

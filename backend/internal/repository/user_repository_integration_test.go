@@ -78,7 +78,7 @@ func TestPostgresUserRepository_Save_and_FindByID(t *testing.T) {
 	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
-	user := newTestUser("test-id-1", "Alice", "alice@example.com")
+	user := newTestUser(uuid.New().String(), "Alice", "alice@example.com")
 
 	if err := repo.Save(ctx, user); err != nil {
 		t.Fatalf("Save failed: %v", err)
@@ -105,7 +105,7 @@ func TestPostgresUserRepository_FindByEmail(t *testing.T) {
 	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
-	user := newTestUser("test-id-2", "Bob", "bob@example.com")
+	user := newTestUser(uuid.New().String(), "Bob", "bob@example.com")
 	if err := repo.Save(ctx, user); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
@@ -127,9 +127,21 @@ func TestPostgresUserRepository_FindByID_NotFound(t *testing.T) {
 	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
-	_, err := repo.FindByID(ctx, "nonexistent-id")
-	if err != domain.ErrNotFound {
-		t.Errorf("err = %v, want ErrNotFound", err)
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{"存在しない UUID", uuid.New().String()},
+		// users.id は UUID 型。URL から渡された UUID でない ID も 404 として扱えるようにする
+		{"UUID の形式でない ID", "nonexistent-id"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := repo.FindByID(ctx, tt.id)
+			if !errors.Is(err, domain.ErrNotFound) {
+				t.Errorf("err = %v, want ErrNotFound", err)
+			}
+		})
 	}
 }
 
@@ -142,8 +154,8 @@ func TestPostgresUserRepository_FindAll(t *testing.T) {
 	ctx := context.Background()
 
 	users := []*domain.User{
-		newTestUser("test-id-a", "Alice", "alice@example.com"),
-		newTestUser("test-id-b", "Bob", "bob@example.com"),
+		newTestUser(uuid.New().String(), "Alice", "alice@example.com"),
+		newTestUser(uuid.New().String(), "Bob", "bob@example.com"),
 	}
 	for _, u := range users {
 		if err := repo.Save(ctx, u); err != nil {
@@ -168,7 +180,7 @@ func TestPostgresUserRepository_Save_Upsert(t *testing.T) {
 	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
-	user := newTestUser("test-id-upsert", "Original", "upsert@example.com")
+	user := newTestUser(uuid.New().String(), "Original", "upsert@example.com")
 	if err := repo.Save(ctx, user); err != nil {
 		t.Fatalf("initial Save failed: %v", err)
 	}
@@ -205,7 +217,7 @@ func TestPostgresUserRepository_Delete(t *testing.T) {
 	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
-	user := newTestUser("test-id-del", "ToDelete", "delete@example.com")
+	user := newTestUser(uuid.New().String(), "ToDelete", "delete@example.com")
 	if err := repo.Save(ctx, user); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
@@ -236,10 +248,10 @@ func TestPostgresUserRepository_Count(t *testing.T) {
 		t.Errorf("initial count = %d, want 0", count)
 	}
 
-	if err := repo.Save(ctx, newTestUser("c1", "A", "a@e.com")); err != nil {
+	if err := repo.Save(ctx, newTestUser(uuid.New().String(), "A", "a@e.com")); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
-	if err := repo.Save(ctx, newTestUser("c2", "B", "b@e.com")); err != nil {
+	if err := repo.Save(ctx, newTestUser(uuid.New().String(), "B", "b@e.com")); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 

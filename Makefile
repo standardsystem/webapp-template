@@ -4,7 +4,7 @@
 # 推奨: mise run <task> を直接使用
 # =============================================================================
 
-.PHONY: setup dev dev-backend dev-frontend dev-down test test-backend test-frontend test-cli test-coverage lint lint-backend lint-frontend lint-cli lint-markdown fmt fmt-markdown build clean check info db-up db-migrate db-migrate-down db-migrate-version help
+.PHONY: setup dev dev-backend dev-frontend dev-down test test-backend test-frontend test-cli test-integration test-coverage lint lint-backend lint-frontend lint-cli lint-markdown fmt fmt-markdown build clean check info db-up db-migrate db-migrate-down db-migrate-version help
 
 setup:
 	mise run setup
@@ -32,6 +32,9 @@ test-frontend:
 
 test-cli:
 	mise run test:cli
+
+test-integration:
+	mise run test:integration
 
 test-coverage:
 	mise run test:coverage

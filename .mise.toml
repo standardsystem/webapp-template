@@ -83,13 +83,24 @@ run = "docker compose down"
 description = "全テスト実行"
 depends = ["test:backend", "test:cli", "test:frontend", "test:scripts"]
 
-# カバレッジのしきい値（%）は scripts/check-go-coverage.mjs の第 2 引数で指定する
+# DB を使うテストは test:integration に分けている（Docker が必要）
+
 [tasks."test:backend"]
-description = "バックエンドテストのみ（カバレッジのしきい値を検査）"
+description = "バックエンドのユニットテストのみ（DB 不要）"
 dir = "backend"
+run = "go test -v -race -cover ./..."
+
+# ユニットテストに加えて integration タグ付きのテストを、テスト用 DB（compose の db-test）に対して実行する。
+# カバレッジのしきい値（%）は backend/AGENTS.md の目標と同じ値にする。internal/mock と cmd は計測対象から外す。
+[tasks."test:integration"]
+description = "バックエンドの全テスト（DB を使う統合テストを含む）とカバレッジのしきい値を検査"
+depends = ["db:test:up"]
+dir = "backend"
+env = { DATABASE_URL = "{{ env.TEST_DATABASE_URL | default(value='postgres://postgres:password@localhost:5433/webapp_test?sslmode=disable') }}", TEST_DATABASE_URL = "{{ env.TEST_DATABASE_URL | default(value='postgres://postgres:password@localhost:5433/webapp_test?sslmode=disable') }}" }
 run = [
-  "go test -v -race -coverprofile=coverage.out ./...",
-  "node ../scripts/check-go-coverage.mjs coverage.out 20",
+  "go run ./cmd/migrate up",
+  "go test -race -p 1 -tags=integration -coverprofile=coverage.out ./...",
+  "node ../scripts/check-go-coverage.mjs coverage.out 80 --exclude=internal/mock,cmd",
 ]
 
 [tasks."test:frontend"]
@@ -224,6 +235,14 @@ description = "DB コンテナのみ起動"
 run = "docker compose up -d db"
 
 # 接続先は DATABASE_URL（.env またはシェルの環境変数）で変更できる。未設定なら compose の DB を使う
+[tasks."db:test:up"]
+description = "統合テスト用の DB コンテナを起動（ポート 5433、データは残さない）"
+run = "docker compose --profile test up -d --wait db-test"
+
+[tasks."db:test:down"]
+description = "統合テスト用の DB コンテナを削除"
+run = "docker compose --profile test rm -sf db-test"
+
 [tasks."db:migrate"]
 description = "DB マイグレーション実行（golang-migrate）"
 depends = ["db:up"]
@@ -254,7 +273,7 @@ run = "docker compose down -v"
 [tasks."clean:backend"]
 description = "バックエンドのビルド成果物を削除"
 dir = "backend"
-run = "node -e \"for (const f of ['coverage.out', 'coverage.html', 'server', 'server.exe']) fs.rmSync(f, { force: true })\""
+run = "node -e \"for (const f of ['coverage.out', 'coverage.out.filtered', 'coverage.html', 'server', 'server.exe']) fs.rmSync(f, { force: true })\""
 
 [tasks."clean:cli"]
 description = "CLI のビルド成果物を削除"
@@ -267,8 +286,8 @@ dir = "frontend"
 run = "node -e \"for (const f of ['dist', 'coverage']) fs.rmSync(f, { recursive: true, force: true })\""
 
 [tasks.check]
-description = "CI と同じチェック（lint + test + 脆弱性検査 + フロントのビルド）"
-depends = ["lint", "test", "vuln", "build:frontend:dist"]
+description = "CI と同じチェック（lint + test + 統合テスト + 脆弱性検査 + フロントのビルド）"
+depends = ["lint", "test", "test:integration", "vuln", "build:frontend:dist"]
 
 [tasks.info]
 description = "現在の開発環境情報を表示"

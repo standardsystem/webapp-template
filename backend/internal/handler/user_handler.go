@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -9,14 +10,20 @@ import (
 	"github.com/your-org/webapp-template/internal/domain"
 )
 
+// UserService は UserHandler が依存するユーザー参照ユースケースのインターフェースです。
+type UserService interface {
+	GetUser(ctx context.Context, id string) (*domain.User, error)
+	ListUsers(ctx context.Context) ([]*domain.User, error)
+}
+
 // UserHandler はユーザー関連の HTTP ハンドラです。
 type UserHandler struct {
-	userRepo domain.UserRepository
+	userUsecase UserService
 }
 
 // NewUserHandler は UserHandler を生成します。
-func NewUserHandler(userRepo domain.UserRepository) *UserHandler {
-	return &UserHandler{userRepo: userRepo}
+func NewUserHandler(userUsecase UserService) *UserHandler {
+	return &UserHandler{userUsecase: userUsecase}
 }
 
 // Router はユーザー関連のルーターを返します（認証必須エンドポイント用）。
@@ -29,7 +36,7 @@ func (h *UserHandler) Router() chi.Router {
 
 // handleList は全ユーザーの一覧を返します。
 func (h *UserHandler) handleList(w http.ResponseWriter, r *http.Request) {
-	users, err := h.userRepo.FindAll(r.Context())
+	users, err := h.userUsecase.ListUsers(r.Context())
 	if err != nil {
 		writeError(w, r, err)
 		return
@@ -53,7 +60,7 @@ func (h *UserHandler) handleList(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	user, err := h.userRepo.FindByID(r.Context(), id)
+	user, err := h.userUsecase.GetUser(r.Context(), id)
 	if err != nil {
 		writeError(w, r, err)
 		return

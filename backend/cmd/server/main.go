@@ -104,13 +104,14 @@ func main() {
 
 	// --- ユースケース ---
 	authUC := usecase.NewAuthUsecase(userRepo, providerRepo, sessionSvc, providers)
+	userUC := usecase.NewUserUsecase(userRepo)
 
 	// --- ハンドラ・ミドルウェア ---
 	authHandler := handler.NewAuthHandler(authUC, handler.AuthHandlerConfig{
 		SecureCookie:   os.Getenv("COOKIE_SECURE") == "true",
 		FrontendOrigin: frontendOrigin,
 	})
-	userHandler := handler.NewUserHandler(userRepo)
+	userHandler := handler.NewUserHandler(userUC)
 	authMW := handler.NewAuthMiddleware(sessionSvc)
 
 	// --- ルーター ---
@@ -145,7 +146,7 @@ func main() {
 			r.Get("/auth/me", authHandler.HandleMe)
 			r.Post("/auth/logout", authHandler.HandleLogout)
 
-			// ユーザー CRUD
+			// ユーザーの一覧と取得（作成は OAuth ログイン時のみ）
 			r.Mount("/users", userHandler.Router())
 
 			// admin のみ

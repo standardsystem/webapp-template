@@ -64,13 +64,11 @@ export const authApi = {
 };
 
 // --- User API ---
+// ユーザーの作成は OAuth ログイン時にバックエンドが行うため、作成・削除の API はありません。
 
 export const userApi = {
   list: () => request<User[]>("/users"),
   get: (id: string) => request<User>(`/users/${id}`),
-  create: (input: { name: string; email: string }) =>
-    request<User>("/users", { method: "POST", body: input }),
-  delete: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }),
 };
 
 // --- Admin API ---

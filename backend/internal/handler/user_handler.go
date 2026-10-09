@@ -31,7 +31,7 @@ func (h *UserHandler) Router() chi.Router {
 func (h *UserHandler) handleList(w http.ResponseWriter, r *http.Request) {
 	users, err := h.userRepo.FindAll(r.Context())
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list users"})
+		writeError(w, r, err)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *UserHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userRepo.FindByID(r.Context(), id)
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "user not found"})
+		writeError(w, r, err)
 		return
 	}
 

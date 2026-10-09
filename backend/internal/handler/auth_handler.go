@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
@@ -57,7 +56,7 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	authURL, state, err := h.authUsecase.GetAuthURL(providerName)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		writeError(w, r, err)
 		return
 	}
 
@@ -115,15 +114,7 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.authUsecase.HandleCallback(r.Context(), providerName, code)
 	if err != nil {
-		if errors.Is(err, domain.ErrEmailNotVerified) {
-			writeJSON(w, http.StatusForbidden, map[string]string{"error": "email not verified by provider"})
-			return
-		}
-		if errors.Is(err, domain.ErrAccountLinkRequired) {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "email already registered with another provider"})
-			return
-		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "authentication failed"})
+		writeError(w, r, err)
 		return
 	}
 
@@ -166,7 +157,7 @@ func (h *AuthHandler) HandleMe(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.authUsecase.GetCurrentUser(r.Context(), userID)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to get user"})
+		writeError(w, r, err)
 		return
 	}
 
@@ -193,7 +184,7 @@ func (h *AuthHandler) HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.authUsecase.UpdateUserRole(r.Context(), targetUserID, domain.Role(req.Role)); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		writeError(w, r, err)
 		return
 	}
 

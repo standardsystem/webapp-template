@@ -1,3 +1,6 @@
+#:tombi lint.disabled = true
+# ↑ Tombi が SchemaStore の「Air」（R 用フォーマッタ posit-dev/air）のスキーマを誤適用するため、検査を止める
+
 # air — `mise run dev:backend` のホットリロード設定
 # https://github.com/air-verse/air
 root = "."

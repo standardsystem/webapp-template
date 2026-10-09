@@ -5,11 +5,10 @@
 
 ## 構成概要
 
-| サービス | Cloud Run のリソース名 (デフォルト) | ベースイメージ |
+| サービス | Cloud Run service 名 (デフォルト) | ベースイメージ |
 |---|---|---|
-| backend (Go API) | service `webapp-template-api` | distroless |
-| frontend (React SPA) | service `webapp-template-web` | `nginx:1.28-alpine` |
-| migrate (DB マイグレーション) | job `webapp-template-migrate` | distroless |
+| backend (Go API) | `webapp-template-api` | distroless |
+| frontend (React SPA) | `webapp-template-web` | `nginx:1.28-alpine` |
 
 ### 案件ごとに書き換える値
 

@@ -10,7 +10,18 @@
 | backend (Go API) | `webapp-template-api` | distroless |
 | frontend (React SPA) | `webapp-template-web` | `nginxinc/nginx-unprivileged:1.30-alpine-slim` |
 
-`webapp-template-api` / `webapp-template-web` は案件ごとに `deploy.yml` の `env:` で書き換えてください。
+### 案件ごとに書き換える値
+
+リソース名は `deploy.yml` の `env:` で定義しています。案件ごとに書き換えてください。
+
+| `env:` のキー | 既定値 | 用途 |
+|---|---|---|
+| `BACKEND_SERVICE` | `webapp-template-api` | backend の Cloud Run service 名とイメージ名 |
+| `FRONTEND_SERVICE` | `webapp-template-web` | frontend の Cloud Run service 名とイメージ名 |
+| `MIGRATE_JOB` | `webapp-template-migrate` | マイグレーション用の Cloud Run Job 名とイメージ名 |
+| `GCP_REGION` | `asia-northeast1` | デプロイ先と Artifact Registry のリージョン |
+
+`MIGRATE_JOB` を変えたときは、[migration.md](migration.md) のコマンド例のジョブ名も読み替えてください。
 
 ## フロントエンドから API への経路
 

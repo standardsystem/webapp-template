@@ -11,6 +11,7 @@ env:
   GCP_REGION: asia-northeast1
   BACKEND_SERVICE: webapp-template-api
   FRONTEND_SERVICE: webapp-template-web
+  MIGRATE_JOB: webapp-template-migrate
   # 案件ごとに GitHub Repository Variables へ設定する値
   #   FRONTEND_ORIGIN: 利用者が開く公開 URL（例: https://app.example.com）。
   #                    frontend の nginx が /api を backend へ転送するため、OAuth の redirect URL もこのオリジンで組み立てる

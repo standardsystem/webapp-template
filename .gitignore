@@ -4,8 +4,10 @@
 
 # Go
 backend/coverage.out
+backend/coverage.out.filtered
 backend/coverage.html
 backend/server
+backend/tmp/
 cli/coverage.out
 cli/coverage.html
 cli/webapp-cli
@@ -29,11 +31,6 @@ frontend/vite.config.d.ts
 
 # mise
 .mise.local.toml
-
-# Python (uv)
-__pycache__/
-*.pyc
-.venv/
 
 # Claude Code
 .claude/

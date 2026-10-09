@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -23,16 +25,18 @@ import (
 )
 
 func main() {
-	// .env 読み込み（本番では無視される）
-	_ = godotenv.Load()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	// .env はローカル開発用。本番にはファイルがないので、ないこと自体はエラーにしない。
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		slog.Warn("failed to load .env", "err", err)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
 
 	ctx := context.Background()
 
@@ -98,19 +102,29 @@ func main() {
 		providers["microsoft"] = microsoft
 	}
 
+	// --- サインアップの制限 ---
+	signupPolicy := usecase.ParseSignupPolicy(os.Getenv("INITIAL_ADMIN_EMAILS"), os.Getenv("ALLOWED_EMAIL_DOMAINS"))
+	if !signupPolicy.RestrictsDomains() {
+		slog.Warn("ALLOWED_EMAIL_DOMAINS is not set; anyone with an account at a configured OAuth provider can sign up as a member")
+	}
+	if !signupPolicy.HasInitialAdmins() {
+		slog.Warn("INITIAL_ADMIN_EMAILS is not set; no new user will be given the admin role")
+	}
+
 	// --- リポジトリ ---
 	userRepo := repository.NewPostgresUserRepository(pool)
 	providerRepo := repository.NewPostgresUserProviderRepository(pool)
 
 	// --- ユースケース ---
-	authUC := usecase.NewAuthUsecase(userRepo, providerRepo, sessionSvc, providers)
+	authUC := usecase.NewAuthUsecase(userRepo, providerRepo, sessionSvc, providers, usecase.WithSignupPolicy(signupPolicy))
+	userUC := usecase.NewUserUsecase(userRepo)
 
 	// --- ハンドラ・ミドルウェア ---
 	authHandler := handler.NewAuthHandler(authUC, handler.AuthHandlerConfig{
 		SecureCookie:   os.Getenv("COOKIE_SECURE") == "true",
 		FrontendOrigin: frontendOrigin,
 	})
-	userHandler := handler.NewUserHandler(userRepo)
+	userHandler := handler.NewUserHandler(userUC)
 	authMW := handler.NewAuthMiddleware(sessionSvc)
 
 	// --- ルーター ---
@@ -145,7 +159,7 @@ func main() {
 			r.Get("/auth/me", authHandler.HandleMe)
 			r.Post("/auth/logout", authHandler.HandleLogout)
 
-			// ユーザー CRUD
+			// ユーザーの一覧と取得（作成は OAuth ログイン時のみ）
 			r.Mount("/users", userHandler.Router())
 
 			// admin のみ

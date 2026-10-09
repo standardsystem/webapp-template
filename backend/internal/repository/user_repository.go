@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/your-org/webapp-template/internal/domain"
@@ -28,7 +29,9 @@ func (r *PostgresUserRepository) FindByID(ctx context.Context, id string) (*doma
 		 FROM users WHERE id = $1`, id,
 	).Scan(&u.ID, &u.Name, &u.Email, &u.AvatarURL, &u.Role, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		// id が UUID の形式でないときも「存在しない」として扱う。
+		// URL のパスから渡された不正な ID を、DB 障害（500）と区別するため。
+		if errors.Is(err, pgx.ErrNoRows) || isInvalidTextRepresentation(err) {
 			return nil, domain.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to find user by id: %w", err)
@@ -130,4 +133,11 @@ func (r *PostgresUserRepository) Count(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("failed to count users: %w", err)
 	}
 	return count, nil
+}
+
+// isInvalidTextRepresentation は、値を列の型（UUID など）に変換できなかったエラーかどうかを返します。
+// SQLSTATE 22P02 (invalid_text_representation)。
+func isInvalidTextRepresentation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "22P02"
 }

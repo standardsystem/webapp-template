@@ -9,14 +9,14 @@ import (
 
 // AuthService は handler.AuthService のモック実装です。
 type AuthService struct {
-	AuthURL_        string
-	State_          string
-	GetAuthURLErr   error
-	CallbackResult  *usecase.AuthCallbackResult
-	CallbackErr     error
-	CurrentUser     *domain.User
-	CurrentUserErr  error
-	UpdateRoleErr   error
+	AuthURL_       string
+	State_         string
+	GetAuthURLErr  error
+	CallbackResult *usecase.AuthCallbackResult
+	CallbackErr    error
+	CurrentUser    *domain.User
+	CurrentUserErr error
+	UpdateRoleErr  error
 }
 
 func (m *AuthService) GetAuthURL(_ string) (string, string, error) {

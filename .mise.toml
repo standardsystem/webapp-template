@@ -9,12 +9,10 @@
 
 [tools]
 # ── ランタイム ──────────────────────────────────────────────
-go     = "1.26"       # go.mod / Dockerfile と一致
-node   = "24"         # Dockerfile node:24-trixie-slim と一致 (Active LTS)
-python = "3.14"       # スクリプト・ツール用
+go     = "1.26.9"     # go.mod / Dockerfile の 1.26 系。パッチまで固定し、脆弱性修正のたびに上げる
+node   = "24"         # Dockerfile node:24-trixie-slim と一致 (Active LTS)。scripts/*.mjs もこれで実行する
 
 # ── パッケージマネージャ ───────────────────────────────────
-uv   = "0.11.3"       # Python 高速パッケージマネージャ
 pnpm = "10.33.0"      # Node.js 高速パッケージマネージャ（frontend/package.json packageManager と一致）
 
 # ── クラウド・ホスティング CLI ──────────────────────────────
@@ -22,9 +20,13 @@ gh     = "2.89.0"     # GitHub CLI（aqua:cli/cli）
 gcloud = "564.0.0"    # Google Cloud SDK（vfox:mise-plugins/vfox-gcloud）
 
 # ── Go 開発ツール ──────────────────────────────────────────
-golangci-lint                 = "2.11.4"
-"go:github.com/air-verse/air" = "v1.65.0"
-# goose は不要（マイグレーションはサーバー起動時に自動適用）
+golangci-lint                              = "2.11.4"
+"go:github.com/air-verse/air"              = "v1.65.0"
+"go:golang.org/x/vuln/cmd/govulncheck"     = "v1.8.0"
+# マイグレーションの CLI は入れない。backend/cmd/migrate が golang-migrate を組み込んでいる（mise run db:migrate）
+
+# ── GitHub Actions ─────────────────────────────────────────
+actionlint = "1.7.12"
 
 # ── Markdown（.markdownlint-cli2.jsonc）──────────────────
 "npm:markdownlint-cli2" = "0.17.2"
@@ -38,23 +40,29 @@ _.file = [".env", ".env.local"]
 
 # ── タスク ──────────────────────────────────────────────────
 
+# テンプレートから作成した直後に 1 度だけ実行する。手順は docs/getting-started.md
+[tasks.init]
+description = "テンプレートの名前を案件用に書き換える（mise run init -- <org>/<repo>）"
+run = "node scripts/init-template.mjs"
+
 [tasks.setup]
-description = "プロジェクト初期セットアップ"
-run = """
-echo "=== mise: ツールインストール ==="
-mise install
+description = "プロジェクト初期セットアップ（Go モジュール取得 + pnpm install）"
+depends = ["setup:backend", "setup:cli", "setup:frontend"]
 
-echo "=== Backend: Go モジュール ==="
-cd backend && go mod download
+[tasks."setup:backend"]
+description = "バックエンドの Go モジュールを取得"
+dir = "backend"
+run = "go mod download"
 
-echo "=== CLI: Go モジュール ==="
-cd cli && go mod download
+[tasks."setup:cli"]
+description = "CLI の Go モジュールを取得"
+dir = "cli"
+run = "go mod download"
 
-echo "=== Frontend: pnpm install ==="
-cd frontend && pnpm install
-
-echo "=== セットアップ完了 ==="
-"""
+[tasks."setup:frontend"]
+description = "フロントエンドの依存パッケージをインストール"
+dir = "frontend"
+run = "pnpm install"
 
 [tasks.dev]
 description = "Docker Compose で開発環境を起動"
@@ -62,11 +70,13 @@ run = "docker compose up --build --watch"
 
 [tasks."dev:backend"]
 description = "バックエンドのみ起動（air ホットリロード）"
-run = "cd backend && air"
+dir = "backend"
+run = "air"
 
 [tasks."dev:frontend"]
 description = "フロントエンドのみ起動"
-run = "cd frontend && pnpm dev"
+dir = "frontend"
+run = "pnpm dev"
 
 [tasks."dev:down"]
 description = "開発環境を停止"
@@ -74,149 +84,235 @@ run = "docker compose down"
 
 [tasks.test]
 description = "全テスト実行"
-run = """
-echo "=== Backend Tests ==="
-cd backend && go test -v -race -cover ./...
+depends = ["test:backend", "test:cli", "test:frontend", "test:scripts"]
 
-echo "=== CLI Tests ==="
-cd cli && go test -v -race -cover ./...
-
-echo "=== Frontend Tests ==="
-cd frontend && pnpm test
-"""
+# DB を使うテストは test:integration に分けている（Docker が必要）
 
 [tasks."test:backend"]
-description = "バックエンドテストのみ"
-run = "cd backend && go test -v -race -cover ./..."
+description = "バックエンドのユニットテストのみ（DB 不要）"
+dir = "backend"
+run = "go test -v -race -cover ./..."
+
+# ユニットテストに加えて integration タグ付きのテストを、テスト用 DB（compose の db-test）に対して実行する。
+# カバレッジのしきい値（%）は backend/AGENTS.md の目標と同じ値にする。internal/mock と cmd は計測対象から外す。
+[tasks."test:integration"]
+description = "バックエンドの全テスト（DB を使う統合テストを含む）とカバレッジのしきい値を検査"
+depends = ["db:test:up"]
+dir = "backend"
+env = { DATABASE_URL = "{{ env.TEST_DATABASE_URL | default(value='postgres://postgres:password@localhost:5433/webapp_test?sslmode=disable') }}", TEST_DATABASE_URL = "{{ env.TEST_DATABASE_URL | default(value='postgres://postgres:password@localhost:5433/webapp_test?sslmode=disable') }}" }
+run = [
+  "go run ./cmd/migrate up",
+  "go test -race -p 1 -tags=integration -coverprofile=coverage.out ./...",
+  "node ../scripts/check-go-coverage.mjs coverage.out 80 --exclude=internal/mock,cmd",
+]
 
 [tasks."test:frontend"]
-description = "フロントエンドテストのみ"
-run = "cd frontend && pnpm test"
+description = "フロントエンドテストのみ（カバレッジのしきい値を検査）"
+dir = "frontend"
+run = "pnpm test:coverage"
+
+[tasks."test:scripts"]
+description = "scripts/ のテストのみ"
+run = "node --test \"scripts/*.test.mjs\""
 
 [tasks."test:cli"]
 description = "CLI のテストのみ"
-run = "cd cli && go test -v -race -cover ./..."
+dir = "cli"
+run = "go test -v -race -cover ./..."
 
 [tasks."test:coverage"]
 description = "カバレッジレポート生成"
-run = """
-echo "=== Backend Coverage ==="
-cd backend && go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
+depends = ["test:coverage:backend", "test:coverage:cli", "test:coverage:frontend"]
 
-echo "=== CLI Coverage ==="
-cd cli && go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
+[tasks."test:coverage:backend"]
+description = "バックエンドのカバレッジレポート生成"
+dir = "backend"
+run = [
+  "go test -race -coverprofile=coverage.out ./...",
+  "go tool cover -html=coverage.out -o coverage.html",
+]
 
-echo "=== Frontend Coverage ==="
-cd frontend && pnpm test:coverage
-"""
+[tasks."test:coverage:cli"]
+description = "CLI のカバレッジレポート生成"
+dir = "cli"
+run = [
+  "go test -race -coverprofile=coverage.out ./...",
+  "go tool cover -html=coverage.out -o coverage.html",
+]
+
+[tasks."test:coverage:frontend"]
+description = "フロントエンドのカバレッジレポート生成"
+dir = "frontend"
+run = "pnpm test:coverage"
 
 [tasks.lint]
 description = "静的解析（全体）"
-run = """
-echo "=== Backend Lint ==="
-cd backend && golangci-lint run ./...
-
-echo "=== CLI Lint ==="
-cd cli && golangci-lint run ./...
-
-echo "=== Frontend Lint ==="
-cd frontend && pnpm lint && pnpm type-check
-
-echo "=== Markdown Lint ==="
-markdownlint-cli2
-"""
+depends = ["lint:backend", "lint:cli", "lint:frontend", "lint:markdown", "lint:actions"]
 
 [tasks."lint:backend"]
-description = "バックエンド Lint のみ"
-run = "cd backend && golangci-lint run ./..."
+description = "バックエンド Lint のみ（gofmt の検査を含む）"
+dir = "backend"
+run = "golangci-lint run ./..."
 
 [tasks."lint:frontend"]
 description = "フロントエンド Lint のみ"
-run = "cd frontend && pnpm lint && pnpm type-check"
+dir = "frontend"
+run = ["pnpm lint", "pnpm type-check"]
 
 [tasks."lint:cli"]
-description = "CLI Lint のみ"
-run = "cd cli && golangci-lint run ./..."
+description = "CLI Lint のみ（gofmt の検査を含む）"
+dir = "cli"
+run = "golangci-lint run ./..."
 
 [tasks."lint:markdown"]
 description = "Markdown（markdownlint-cli2）のみ"
 run = "markdownlint-cli2"
 
+[tasks."lint:actions"]
+description = "GitHub Actions ワークフロー（actionlint）のみ"
+run = "actionlint"
+
+[tasks.vuln]
+description = "Go の脆弱性検査（govulncheck）"
+depends = ["vuln:backend", "vuln:cli"]
+
+[tasks."vuln:backend"]
+description = "バックエンドの脆弱性検査"
+dir = "backend"
+run = "govulncheck ./..."
+
+[tasks."vuln:cli"]
+description = "CLI の脆弱性検査"
+dir = "cli"
+run = "govulncheck ./..."
+
+[tasks."audit:frontend"]
+description = "フロントエンドの依存パッケージの脆弱性検査（pnpm audit）"
+dir = "frontend"
+run = "pnpm audit --prod"
+
 [tasks.fmt]
 description = "コードフォーマット（Go + Prettier + Markdown）"
-run = """
-echo "=== Go fmt ==="
-cd backend && gofmt -w .
-cd cli && gofmt -w .
+depends = ["fmt:backend", "fmt:cli", "fmt:frontend", "fmt:markdown"]
 
-echo "=== Prettier ==="
-cd frontend && pnpm format
+[tasks."fmt:backend"]
+description = "バックエンドを gofmt で整形"
+dir = "backend"
+run = "gofmt -w ."
 
-echo "=== Markdown fix ==="
-markdownlint-cli2 --fix
-"""
+[tasks."fmt:cli"]
+description = "CLI を gofmt で整形"
+dir = "cli"
+run = "gofmt -w ."
+
+[tasks."fmt:frontend"]
+description = "フロントエンドを Prettier で整形"
+dir = "frontend"
+run = "pnpm format"
+
+[tasks."fmt:markdown"]
+description = "Markdown を markdownlint-cli2 --fix で自動修正"
+run = "markdownlint-cli2 --fix"
 
 [tasks.build]
 description = "本番用 Docker イメージビルド"
-run = """
-echo "=== Backend Build ==="
-cd backend && docker build -t webapp-backend .
+depends = ["build:backend", "build:frontend"]
 
-echo "=== Frontend Build ==="
-cd frontend && docker build -t webapp-frontend .
-"""
+[tasks."build:backend"]
+description = "バックエンドの Docker イメージビルド"
+dir = "backend"
+run = "docker build -t webapp-backend ."
+
+[tasks."build:frontend"]
+description = "フロントエンドの Docker イメージビルド"
+dir = "frontend"
+run = "docker build -t webapp-frontend ."
+
+# nginx.conf.template を実際のイメージで展開し、設定として正しいかを nginx -t で確認する。
+# proxy_pass のホスト名は起動時に名前解決されるため、解決できる URL を渡している。
+[tasks."test:frontend:image"]
+description = "フロントエンドの本番イメージで nginx の設定を検査"
+depends = ["build:frontend"]
+run = "docker run --rm -e BACKEND_URL=https://example.com webapp-frontend nginx -t"
+
+# Vite の開発サーバー経由と本番イメージの nginx 経由の両方で、/health と /api が backend に届くかを確認する。
+# compose 一式を別プロジェクト（webapp-smoke）で起動するため数分かかる。mise run check には含めず、CI で実行する。
+[tasks."test:routing"]
+description = "フロントから API への経路のスモークテスト（Docker で一式を起動）"
+depends = ["build:frontend"]
+run = "node scripts/smoke-routing.mjs"
+
+[tasks."build:frontend:dist"]
+description = "フロントエンドの本番ビルド（tsc -b + vite build）"
+dir = "frontend"
+run = "pnpm build"
 
 [tasks."db:up"]
 description = "DB コンテナのみ起動"
 run = "docker compose up -d db"
 
+# 接続先は DATABASE_URL（.env またはシェルの環境変数）で変更できる。未設定なら compose の DB を使う
+[tasks."db:test:up"]
+description = "統合テスト用の DB コンテナを起動（ポート 5433、データは残さない）"
+run = "docker compose --profile test up -d --wait db-test"
+
+[tasks."db:test:down"]
+description = "統合テスト用の DB コンテナを削除"
+run = "docker compose --profile test rm -sf db-test"
+
 [tasks."db:migrate"]
 description = "DB マイグレーション実行（golang-migrate）"
 depends = ["db:up"]
-run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate up"
+dir = "backend"
+env = { DATABASE_URL = "{{ env.DATABASE_URL | default(value='postgres://postgres:password@localhost:5432/webapp?sslmode=disable') }}" }
+run = "go run ./cmd/migrate up"
 
 [tasks."db:migrate:down"]
 description = "DB マイグレーションを 1 つ戻す（golang-migrate）"
 depends = ["db:up"]
-run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate down"
+dir = "backend"
+env = { DATABASE_URL = "{{ env.DATABASE_URL | default(value='postgres://postgres:password@localhost:5432/webapp?sslmode=disable') }}" }
+run = "go run ./cmd/migrate down"
 
 [tasks."db:migrate:version"]
-description = "DB マイグレーションの現在バージョンを表示"
+description = "DB マイグレーションの現在バージョンと dirty フラグを表示"
 depends = ["db:up"]
-run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate version"
-
-[tasks."db:status"]
-description = "DB マイグレーション状態確認"
-depends = ["db:up"]
-run = """
-psql "${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}" \
-  -c "SELECT version, applied_at FROM schema_migrations ORDER BY version;"
-"""
+dir = "backend"
+env = { DATABASE_URL = "{{ env.DATABASE_URL | default(value='postgres://postgres:password@localhost:5432/webapp?sslmode=disable') }}" }
+run = "go run ./cmd/migrate version"
 
 [tasks.clean]
 description = "ビルド成果物をクリーンアップ"
-run = """
-docker compose down -v
-cd backend && rm -f coverage.out coverage.html server
-cd cli && rm -f coverage.out coverage.html webapp-cli
-cd frontend && rm -rf dist coverage
-"""
+depends = ["clean:backend", "clean:cli", "clean:frontend"]
+run = "docker compose down -v"
+
+# rm は Windows の既定シェルにないため、mise が管理する node で削除する
+[tasks."clean:backend"]
+description = "バックエンドのビルド成果物を削除"
+dir = "backend"
+run = "node -e \"for (const f of ['coverage.out', 'coverage.out.filtered', 'coverage.html', 'server', 'server.exe']) fs.rmSync(f, { force: true })\""
+
+[tasks."clean:cli"]
+description = "CLI のビルド成果物を削除"
+dir = "cli"
+run = "node -e \"for (const f of ['coverage.out', 'coverage.html', 'webapp-cli', 'webapp-cli.exe']) fs.rmSync(f, { force: true })\""
+
+[tasks."clean:frontend"]
+description = "フロントエンドのビルド成果物を削除"
+dir = "frontend"
+run = "node -e \"for (const f of ['dist', 'coverage']) fs.rmSync(f, { recursive: true, force: true })\""
 
 [tasks.check]
-description = "CI 相当のチェック（lint + test）"
-depends = ["lint", "test"]
+description = "CI と同じチェック（lint + test + 統合テスト + 脆弱性検査 + フロントのビルド）"
+depends = ["lint", "test", "test:integration", "test:frontend:image", "vuln", "build:frontend:dist"]
 
 [tasks.info]
 description = "現在の開発環境情報を表示"
-run = """
-echo "=== mise ツールバージョン ==="
-mise current
-echo ""
-go version
-node --version
-python --version
-pnpm --version
-uv --version
-gh --version
-gcloud --version
-"""
+run = [
+  "mise current",
+  "go version",
+  "node --version",
+  "pnpm --version",
+  "gh --version",
+  "gcloud --version",
+]

@@ -4,15 +4,17 @@ Go + React の Web アプリに加え、**Go 製 CLI** を同じリポジトリ�
 
 **人向けの手順書・詳細ガイド:** [docs/README.md](docs/README.md)
 
+**このテンプレートから新しい案件を始めるとき:** [docs/getting-started.md](docs/getting-started.md)
+
 ## 技術スタック
 
 | 領域 | 技術 |
 | ---- | --- |
-| ツール管理 | mise（Go / Node / Python バージョン固定） |
+| ツール管理 | mise（Go / Node と開発ツールのバージョン固定） |
 | バックエンド | Go 1.26 / chi / distroless |
 | CLI | Go 1.26（`cli/`・`go.work`） |
 | フロントエンド | React 18 / Vite / TypeScript (strict) |
-| パッケージ管理 | Go Modules / pnpm (Node) / uv (Python) |
+| パッケージ管理 | Go Modules / pnpm (Node) |
 | タスクランナー | mise tasks（`mise run <task>`） |
 | ドキュメント | `docs/`・markdownlint（`.markdownlint-cli2.jsonc`） |
 | インフラ | Google Cloud Run / GitHub Actions |
@@ -34,7 +36,7 @@ mise run setup
 mise run dev
 ```
 
-- フロントエンド: [http://localhost:5173](http://localhost:5173)
+- フロントエンド: [http://localhost:5173](http://localhost:5173)（`/api` はバックエンドへ転送される）
 - バックエンド: [http://localhost:8080](http://localhost:8080)
 - ヘルス: [http://localhost:8080/health](http://localhost:8080/health)
 
@@ -52,7 +54,8 @@ mise run lint:markdown
 mise run fmt             # gofmt + Prettier + markdownlint --fix
 mise run fmt:markdown
 mise run build
-mise run check           # CI 相当（lint + test）
+mise run test:integration  # backend の統合テスト（Docker でテスト用 DB を起動）
+mise run check           # CI と同じ検査（lint + test + 統合テスト + govulncheck + フロントのビルド）
 mise run db:migrate
 mise run info
 
@@ -72,7 +75,7 @@ make check
 ├── .markdownlint-cli2.jsonc
 ├── .pre-commit-config.yaml
 ├── .cursor/
-│   ├── rules/            # Markdown 規約（*.md）
+│   ├── rules/            # Markdown 規約（*.mdc）
 │   └── skills/           # ドキュメント作業用スキル
 ├── docker-compose.yml
 ├── .mise.toml
@@ -95,7 +98,7 @@ cd cli && go run ./cmd/webapp-cli health http://localhost:8080/health
 
 ## Cloud Run
 
-GitHub Secrets と手順の詳細は [docs/development.md](docs/development.md) および [docs/monorepo.md](docs/monorepo.md) を参照してください。
+GitHub の Secrets / Variables とデプロイ手順は [docs/deployment.md](docs/deployment.md)、DB マイグレーションは [docs/migration.md](docs/migration.md) を参照してください。
 
 ## AI との協働
 

@@ -19,6 +19,16 @@ type AuthUsecase struct {
 	providerRepo domain.UserProviderRepository
 	sessionSvc   domain.SessionService
 	providers    map[string]domain.OAuthProvider
+	signupPolicy SignupPolicy
+}
+
+// AuthOption は AuthUsecase の任意の設定です。
+type AuthOption func(*AuthUsecase)
+
+// WithSignupPolicy は、ログインを許可するドメインと初期管理者を設定します。
+// 指定しないときは SignupPolicy のゼロ値（制限なし・初期管理者なし）になります。
+func WithSignupPolicy(p SignupPolicy) AuthOption {
+	return func(a *AuthUsecase) { a.signupPolicy = p }
 }
 
 // NewAuthUsecase は AuthUsecase を生成します。
@@ -27,13 +37,18 @@ func NewAuthUsecase(
 	providerRepo domain.UserProviderRepository,
 	sessionSvc domain.SessionService,
 	providers map[string]domain.OAuthProvider,
+	opts ...AuthOption,
 ) *AuthUsecase {
-	return &AuthUsecase{
+	a := &AuthUsecase{
 		userRepo:     userRepo,
 		providerRepo: providerRepo,
 		sessionSvc:   sessionSvc,
 		providers:    providers,
 	}
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
 }
 
 // GetAuthURL は指定プロバイダの認可 URL と state を返します。
@@ -53,9 +68,9 @@ func (a *AuthUsecase) GetAuthURL(providerName string) (authURL, state string, er
 
 // AuthCallbackResult はコールバック処理の結果です。
 type AuthCallbackResult struct {
-	User       *domain.User
+	User         *domain.User
 	SessionToken string
-	IsNewUser  bool
+	IsNewUser    bool
 }
 
 // HandleCallback は OAuth コールバックを処理し、ユーザーの upsert とセッション発行を行います。
@@ -92,6 +107,11 @@ func (a *AuthUsecase) HandleCallback(ctx context.Context, providerName, code str
 			return nil, fmt.Errorf("%w: provider %s", domain.ErrEmailNotVerified, providerName)
 		}
 
+		// 既存ユーザーの有無を答える前に判定し、許可外のドメインにメールの登録状況を教えない
+		if !a.signupPolicy.allowsEmail(userInfo.Email) {
+			return nil, fmt.Errorf("%w: provider %s", domain.ErrEmailDomainNotAllowed, providerName)
+		}
+
 		// 同じメールのユーザーが別プロバイダで登録済みでも、メールの一致だけでは連携しない。
 		// プロバイダが確認済みとするメールでも、退職や再割り当てで現在の所有者が変わっている場合がある。
 		if _, err := a.userRepo.FindByEmail(ctx, userInfo.Email); err == nil {
@@ -100,18 +120,13 @@ func (a *AuthUsecase) HandleCallback(ctx context.Context, providerName, code str
 			return nil, fmt.Errorf("failed to find user by email: %w", err)
 		}
 
-		role, err := a.determineRole(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to determine role: %w", err)
-		}
-
 		now := time.Now().UTC()
 		user = &domain.User{
 			ID:        uuid.New().String(),
 			Name:      userInfo.Name,
 			Email:     userInfo.Email,
 			AvatarURL: userInfo.AvatarURL,
-			Role:      role,
+			Role:      a.signupPolicy.initialRole(userInfo.Email),
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
@@ -132,6 +147,10 @@ func (a *AuthUsecase) HandleCallback(ctx context.Context, providerName, code str
 		user, err = a.userRepo.FindByID(ctx, up.UserID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to find user: %w", err)
+		}
+		// 許可するドメインを後から絞ったときに、登録済みのユーザーもログインできなくする
+		if !a.signupPolicy.allowsEmail(user.Email) {
+			return nil, fmt.Errorf("%w: provider %s", domain.ErrEmailDomainNotAllowed, providerName)
 		}
 		user.Name = userInfo.Name
 		user.AvatarURL = userInfo.AvatarURL
@@ -184,19 +203,6 @@ func (a *AuthUsecase) UpdateUserRole(ctx context.Context, targetUserID string, n
 		return fmt.Errorf("failed to update role: %w", err)
 	}
 	return nil
-}
-
-// determineRole は新規ユーザーのロールを決定します。
-// 最初のユーザーは admin、以降は member。
-func (a *AuthUsecase) determineRole(ctx context.Context) (domain.Role, error) {
-	count, err := a.userRepo.Count(ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to count users: %w", err)
-	}
-	if count == 0 {
-		return domain.RoleAdmin, nil
-	}
-	return domain.RoleMember, nil
 }
 
 // generateState は CSRF 防止用のランダム state 文字列を生成します。

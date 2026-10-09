@@ -1,0 +1,12 @@
+# golangci-lint v2 の設定。バージョンは .mise.toml で固定している。
+version: "2"
+
+# integration タグ付きのテスト（DB を使う）も lint の対象にする
+run:
+  build-tags:
+    - integration
+
+# gofmt 未適用のファイルを lint の失敗として扱う。整形は `mise run fmt` で行う。
+formatters:
+  enable:
+    - gofmt

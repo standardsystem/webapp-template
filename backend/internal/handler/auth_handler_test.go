@@ -65,7 +65,7 @@ func TestAuthHandler_Login(t *testing.T) {
 
 	t.Run("異常系: 未知のプロバイダ", func(t *testing.T) {
 		svc := &mock.AuthService{
-			GetAuthURLErr: errors.New("unknown provider"),
+			GetAuthURLErr: fmt.Errorf("%w: unknown provider: unknown", domain.ErrInvalidInput),
 		}
 		h := newTestAuthHandler(svc)
 
@@ -209,6 +209,28 @@ func TestAuthHandler_Callback(t *testing.T) {
 		if rec.Code != http.StatusInternalServerError {
 			t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 		}
+		if strings.Contains(rec.Body.String(), "exchange failed") {
+			t.Errorf("body leaks internal error detail: %s", rec.Body.String())
+		}
+	})
+
+	t.Run("異常系: 未知のプロバイダは 400", func(t *testing.T) {
+		svc := &mock.AuthService{
+			CallbackErr: fmt.Errorf("%w: unknown provider: unknown", domain.ErrInvalidInput),
+		}
+		h := newTestAuthHandler(svc)
+
+		r := chi.NewRouter()
+		r.Mount("/auth", h.Router())
+
+		req := httptest.NewRequest(http.MethodGet, "/auth/unknown/callback?code=authcode&state=s", nil)
+		req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "s"})
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+		}
 	})
 
 	t.Run("異常系: メール未検証は 403 でセッションを発行しない", func(t *testing.T) {
@@ -329,23 +351,30 @@ func TestAuthHandler_Me(t *testing.T) {
 		}
 	})
 
-	t.Run("異常系: ユーザー取得失敗", func(t *testing.T) {
-		svc := &mock.AuthService{
-			CurrentUserErr: errors.New("not found"),
-		}
-		h := newTestAuthHandler(svc)
+	errTests := []struct {
+		name       string
+		err        error
+		wantStatus int
+	}{
+		{"異常系: ユーザーが存在しない", fmt.Errorf("failed to find user: %w", domain.ErrNotFound), http.StatusNotFound},
+		{"異常系: DB 障害", errors.New("connection refused"), http.StatusInternalServerError},
+	}
+	for _, tt := range errTests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newTestAuthHandler(&mock.AuthService{CurrentUserErr: tt.err})
 
-		req := httptest.NewRequest(http.MethodGet, "/me", nil)
-		ctx := handler.ContextWithUser(req.Context(), "u1", "t@e.com", domain.RoleMember)
-		req = req.WithContext(ctx)
-		rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/me", nil)
+			ctx := handler.ContextWithUser(req.Context(), "u1", "t@e.com", domain.RoleMember)
+			req = req.WithContext(ctx)
+			rec := httptest.NewRecorder()
 
-		h.HandleMe(rec, req)
+			h.HandleMe(rec, req)
 
-		if rec.Code != http.StatusInternalServerError {
-			t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
-		}
-	})
+			if rec.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
 }
 
 // --- HandleUpdateRole テスト ---
@@ -384,23 +413,34 @@ func TestAuthHandler_UpdateRole(t *testing.T) {
 		}
 	})
 
-	t.Run("異常系: ユースケースエラー", func(t *testing.T) {
-		svc := &mock.AuthService{
-			UpdateRoleErr: errors.New("invalid role"),
-		}
-		h := newTestAuthHandler(svc)
+	errTests := []struct {
+		name       string
+		err        error
+		wantStatus int
+	}{
+		{"異常系: 不正なロール", fmt.Errorf("%w: invalid role: superadmin", domain.ErrInvalidInput), http.StatusBadRequest},
+		{"異常系: 対象ユーザーが存在しない", fmt.Errorf("failed to find user: %w", domain.ErrNotFound), http.StatusNotFound},
+		{"異常系: DB 障害", errors.New("pq: connection refused at 10.0.0.5"), http.StatusInternalServerError},
+	}
+	for _, tt := range errTests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newTestAuthHandler(&mock.AuthService{UpdateRoleErr: tt.err})
 
-		r := chi.NewRouter()
-		r.Put("/users/{id}/role", h.HandleUpdateRole)
+			r := chi.NewRouter()
+			r.Put("/users/{id}/role", h.HandleUpdateRole)
 
-		body := strings.NewReader(`{"role":"superadmin"}`)
-		req := httptest.NewRequest(http.MethodPut, "/users/u1/role", body)
-		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, req)
+			body := strings.NewReader(`{"role":"superadmin"}`)
+			req := httptest.NewRequest(http.MethodPut, "/users/u1/role", body)
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
-		}
-	})
+			if rec.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+			// 内部のエラー文言を利用者へ返さない
+			if strings.Contains(rec.Body.String(), "superadmin") || strings.Contains(rec.Body.String(), "10.0.0.5") {
+				t.Errorf("body leaks internal error detail: %s", rec.Body.String())
+			}
+		})
+	}
 }
-

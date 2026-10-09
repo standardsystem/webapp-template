@@ -18,6 +18,7 @@ src/test/         テストのセットアップ
 - `tsconfig.json` の `strict: true` を維持する。
 - `any` を使わない。型が不明な値は `unknown` で受けて絞り込む。
 - コンポーネントは関数コンポーネントで書く。クラスコンポーネントは使わない。
+  例外は Error Boundary（`src/components/ErrorBoundary.tsx`）だけ。React は `componentDidCatch` をクラスでしか提供していない。
 - API 呼び出しや状態管理のロジックはカスタムフックに分離する。
 - パッケージマネージャは pnpm。`npm` / `yarn` でロックファイルを作らない。
 

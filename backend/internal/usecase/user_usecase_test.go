@@ -10,62 +10,6 @@ import (
 	"github.com/your-org/webapp-template/internal/usecase"
 )
 
-func TestUserUsecase_CreateUser(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   usecase.CreateUserInput
-		saveErr error
-		wantErr bool
-	}{
-		{
-			name:  "正常系: ユーザーが作成される",
-			input: usecase.CreateUserInput{Name: "加藤一由樹", Email: "kazuyuki@example.com"},
-		},
-		{
-			name:    "異常系: 名前が空",
-			input:   usecase.CreateUserInput{Name: "", Email: "test@example.com"},
-			wantErr: true,
-		},
-		{
-			name:    "異常系: メールが空",
-			input:   usecase.CreateUserInput{Name: "テスト", Email: ""},
-			wantErr: true,
-		},
-		{
-			name:    "異常系: リポジトリエラー",
-			input:   usecase.CreateUserInput{Name: "テスト", Email: "test@example.com"},
-			saveErr: errors.New("db error"),
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := mock.NewUserRepository()
-			repo.SaveErr = tt.saveErr
-			uc := usecase.NewUserUsecase(repo)
-
-			got, err := uc.CreateUser(context.Background(), tt.input)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Error("expected error but got nil")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if got.Name != tt.input.Name {
-				t.Errorf("Name = %s, want %s", got.Name, tt.input.Name)
-			}
-			if got.Email != tt.input.Email {
-				t.Errorf("Email = %s, want %s", got.Email, tt.input.Email)
-			}
-		})
-	}
-}
-
 func TestUserUsecase_GetUser(t *testing.T) {
 	repo := mock.NewUserRepository()
 	repo.Users["user-1"] = &domain.User{ID: "user-1", Name: "テスト", Email: "test@example.com"}
@@ -87,4 +31,60 @@ func TestUserUsecase_GetUser(t *testing.T) {
 			t.Errorf("error = %v, want ErrNotFound", err)
 		}
 	})
+}
+
+func TestUserUsecase_ListUsers(t *testing.T) {
+	dbErr := errors.New("db error")
+
+	tests := []struct {
+		name    string
+		users   []*domain.User
+		findErr error
+		wantLen int
+		wantErr error
+	}{
+		{
+			name:    "正常系: ユーザーがいない",
+			wantLen: 0,
+		},
+		{
+			name: "正常系: 全ユーザーを取得",
+			users: []*domain.User{
+				{ID: "user-1", Name: "A", Email: "a@example.com"},
+				{ID: "user-2", Name: "B", Email: "b@example.com"},
+			},
+			wantLen: 2,
+		},
+		{
+			name:    "異常系: リポジトリエラーを原因として返す",
+			findErr: dbErr,
+			wantErr: dbErr,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := mock.NewUserRepository()
+			for _, u := range tt.users {
+				repo.Users[u.ID] = u
+			}
+			repo.FindErr = tt.findErr
+			uc := usecase.NewUserUsecase(repo)
+
+			got, err := uc.ListUsers(context.Background())
+
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Errorf("error = %v, want %v", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(got) != tt.wantLen {
+				t.Errorf("len = %d, want %d", len(got), tt.wantLen)
+			}
+		})
+	}
 }

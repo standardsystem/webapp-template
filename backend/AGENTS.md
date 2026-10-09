@@ -31,11 +31,13 @@ migrations/                golang-migrate の SQL（embed で同梱）
 
 - テストは実装と同じディレクトリに `*_test.go` で置き、テーブル駆動（`t.Run` のサブテスト）で書く。
 - 外部依存は `internal/mock/` のモックに差し替える。インターフェースを追加したらモックも追加する。
-- カバレッジの目標は 80% 以上。
+- `repository` など DB を使うテストは、ファイルの先頭に `//go:build integration` を付け、`*_integration_test.go` に置く。
+- カバレッジは 80% 以上を保つ。`mise run test:integration` と CI が同じしきい値で検査する（`internal/mock` と `cmd` は計測対象外）。
 
 ```bash
-mise run test:backend   # go test -v -race -cover ./...
-mise run lint:backend   # golangci-lint run ./...
+mise run test:backend       # ユニットテストのみ（DB 不要）
+mise run test:integration   # ユニット + 統合テスト + カバレッジ 80% の検査（Docker でテスト用 DB を起動）
+mise run lint:backend       # golangci-lint run ./...
 ```
 
 ## マイグレーション

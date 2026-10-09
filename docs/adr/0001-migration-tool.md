@@ -163,3 +163,16 @@ deploy 前ステップで実行する方針が示されている。実装選択�
   範囲外。security PR (PR5) または別途検討
 - 既存 dev DB の互換性: schema は同じなので破壊的変更なし。`schema_migrations`
   テーブルの形式が異なる場合は手動で marker を入れる手順を docs に書く
+
+## 実装結果（2026-10-09 追記）
+
+PR3（#9）で実装した結果、本文の計画と異なる点が 2 つあります。本文は決定時点の記録として書き換えず、ここに差分を残します。
+
+- **開発環境でも、起動時の自動マイグレーションをやめた。** 「Neutral」と「理由 5」では、開発環境では backend の起動時に自動適用を続けるとしていた。
+  実際には Implementation Plan 5 の後者の案を採り、`docker-compose.yml` に `migrate` サービスを分けた。
+  `mise run dev` で `migrate` が 1 度だけ実行され、成功後に backend が起動する。backend は本番と開発のどちらでもマイグレーションのコードを持たない。
+- **Cloud Run Job は公式イメージ（`migrate/migrate`）ではなく、自前のイメージで実行している。** 「理由 1」では公式イメージをそのまま使えるとしていた。
+  実際には `backend/cmd/migrate` が SQL を `embed` で同梱し、`backend/Dockerfile.migrate` でビルドしたイメージを Job にしている。
+  マイグレーションファイルを Cloud Storage などからマウントする必要がなく、アプリと同じコミットの SQL が必ず使われる。
+
+現在の運用手順は [../migration.md](../migration.md) にあります。

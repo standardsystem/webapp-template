@@ -22,10 +22,11 @@ go.work     backend / cli の Go ワークスペース
 ```bash
 mise run setup          # 初回セットアップ（Go モジュール取得 + pnpm install）
 mise run dev            # Docker Compose で API + フロント + DB を起動
-mise run test           # backend + cli + frontend のテスト
-mise run lint           # golangci-lint + eslint + tsc + markdownlint
+mise run test           # backend + cli + frontend のユニットテスト
+mise run test:integration  # backend の統合テスト（Docker でテスト用 DB を起動）
+mise run lint           # golangci-lint（gofmt 検査を含む）+ eslint + tsc + markdownlint + actionlint
 mise run fmt            # gofmt + Prettier + markdownlint --fix
-mise run check          # lint + test（CI 相当）
+mise run check          # CI と同じ検査（lint + test + 統合テスト + govulncheck + フロントのビルド）
 mise run db:migrate     # DB マイグレーション適用
 ```
 
@@ -37,6 +38,8 @@ mise run db:migrate     # DB マイグレーション適用
 - 実装を追加・変更したら、同じ変更でテストも追加・更新する。
 - 完了を報告する前に、触ったパッケージの lint とテストを実行して通す。
 - エラーを握りつぶさない。Go では `_ = err` を書かず、上位へ返す。
+  返す先がない場所（`main`、HTTP レスポンスを書き始めたあと）では `slog` でログに残す。
+  例外は、後始末（`defer` での `Close()`、レスポンスボディの読み捨て）と、CLI の標準出力・標準エラーへの書き込みだけ。これらは `_ =` で明示して捨ててよい。
 - 既存のテストを削除・無効化しない。スキップする場合は理由をコードに書く。
 - 秘密情報をコードやコミットに含めない。環境変数を追加したら `.env.example` にも追記する。
 - `main` へ直接プッシュしない。ブランチを切って PR を出す。

@@ -25,15 +25,18 @@ services:
       DATABASE_URL: "postgres://postgres:password@db:5432/webapp?sslmode=disable"
       JWT_SECRET: "dev-secret-change-in-production-at-least-32-chars"
       COOKIE_SECURE: "false"
+      # OAuth のコールバックは、ブラウザが開いているフロントのオリジン（/api は backend へ転送される）で受ける
+      INITIAL_ADMIN_EMAILS: "${INITIAL_ADMIN_EMAILS:-}"
+      ALLOWED_EMAIL_DOMAINS: "${ALLOWED_EMAIL_DOMAINS:-}"
       GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
       GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
-      GOOGLE_REDIRECT_URL: "http://localhost:8080/api/v1/auth/google/callback"
+      GOOGLE_REDIRECT_URL: "http://localhost:5173/api/v1/auth/google/callback"
       GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID}"
       GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET}"
-      GITHUB_REDIRECT_URL: "http://localhost:8080/api/v1/auth/github/callback"
+      GITHUB_REDIRECT_URL: "http://localhost:5173/api/v1/auth/github/callback"
       MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID}"
       MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET}"
-      MICROSOFT_REDIRECT_URL: "http://localhost:8080/api/v1/auth/microsoft/callback"
+      MICROSOFT_REDIRECT_URL: "http://localhost:5173/api/v1/auth/microsoft/callback"
       MICROSOFT_TENANT_ID: "${MICROSOFT_TENANT_ID}"
     depends_on:
       db:
@@ -54,7 +57,11 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: "http://localhost:8080"
+      # Vite の開発サーバーが /api を転送する先。コンテナ内の localhost は frontend 自身を指すため、
+      # compose のサービス名で backend を指定する。
+      API_PROXY_TARGET: "http://backend:8080"
+    depends_on:
+      - backend
     develop:
       watch:
         - action: sync
@@ -82,6 +89,27 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # 統合テスト（mise run test:integration）専用の DB。
+  # テストがテーブルを空にするため、開発用の db とは別のコンテナにしている。
+  # profile を付けているので、mise run dev（docker compose up）では起動しない。
+  db-test:
+    image: postgres:17-alpine
+    profiles: ["test"]
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: webapp_test
+    # データは残さない（コンテナを作り直すたびに空になる）
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d webapp_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
 volumes:
   postgres_data:

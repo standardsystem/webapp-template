@@ -37,8 +37,11 @@ COPY --chown=nginx:nginx nginx.conf.template /etc/nginx/templates/default.conf.t
 # Cloud Run は PORT 環境変数で待受ポートを指定する。
 # nginx-unprivileged のデフォルト listen も 8080 で一致。
 ENV PORT=8080
-# envsubst で置換する変数を ${PORT} のみに限定（nginx の $uri などを誤置換しないため）
-ENV NGINX_ENVSUBST_FILTER=^PORT$
+# /api と /health のプロキシ先。Cloud Run では deploy.yml がバックエンドの URL を渡す。
+# 既定値は、設定なしでもコンテナが起動するようにするためのもの（API は 502 になる）。
+ENV BACKEND_URL=http://localhost:8080
+# envsubst で置換する変数を ${PORT} と ${BACKEND_URL} に限定（nginx の $uri などを誤置換しないため）
+ENV NGINX_ENVSUBST_FILTER=^(PORT|BACKEND_URL)$
 
 EXPOSE 8080
 

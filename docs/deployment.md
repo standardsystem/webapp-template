@@ -8,9 +8,33 @@
 | サービス | Cloud Run service 名 (デフォルト) | ベースイメージ |
 |---|---|---|
 | backend (Go API) | `webapp-template-api` | distroless |
-| frontend (React SPA) | `webapp-template-web` | `nginx:1.28-alpine` |
+| frontend (React SPA) | `webapp-template-web` | `nginxinc/nginx-unprivileged:1.30-alpine-slim` |
 
 `webapp-template-api` / `webapp-template-web` は案件ごとに `deploy.yml` の `env:` で書き換えてください。
+
+## フロントエンドから API への経路
+
+利用者のブラウザは frontend のオリジンだけを開きます。frontend の nginx が `/api/` と `/health` を backend へリバースプロキシします。
+
+```text
+ブラウザ ──https──▶ frontend (nginx) ──/api/*, /health──▶ backend (Go API)
+                        └─ それ以外は静的ファイル（SPA）
+```
+
+- フロントのコード（`frontend/src/lib/api.ts`）は相対パス `/api/v1` を呼びます。ブラウザから見てフロントと API が同一オリジンになるため、セッション Cookie（`SameSite=Lax`）がそのまま送られ、CORS の設定に依存しません。
+- カスタムドメインがなくても、Cloud Run の既定の URL（`*.run.app`）のままで動きます。`*.run.app` は Public Suffix のため、frontend と backend を別オリジンのまま使うと Cookie が送られません。
+- プロキシ先は frontend の環境変数 `BACKEND_URL` です。`deploy.yml` の `deploy-frontend` が、直前にデプロイした backend の URL を `gcloud run services describe` で取得して渡します。手で設定する値はありません。
+- OAuth のコールバックも frontend のオリジンで受けます。各プロバイダの管理画面には `${FRONTEND_ORIGIN}/api/v1/auth/{google|github|microsoft}/callback` を登録してください。
+- 開発時は Vite の開発サーバーが同じ役割をします（`frontend/vite.config.ts` の `server.proxy`）。転送先は `API_PROXY_TARGET` で、Docker Compose では `http://backend:8080` を渡しています。
+
+この方式の制約:
+
+- API の通信が frontend のインスタンスを経由するため、その分の遅延と課金が増えます。
+- backend のサービスは `--allow-unauthenticated` のまま公開されています。backend の URL を直接開いても、Cookie のオリジンが違うためログイン済みの操作はできませんが、到達はできます。
+- nginx は起動時に `BACKEND_URL` のホスト名を名前解決します。backend のサービス名を変えたときは frontend も再デプロイしてください（`deploy.yml` は毎回両方をデプロイします）。
+
+社内向けに IAP や Cloud Armor が必要な案件は、外部 HTTPS ロードバランサーでパスを振り分ける構成（`/api/*` → backend、それ以外 → frontend）へ移行してください。
+同一オリジンのままなので、フロントのコードと Cookie の設計は変えずに済みます。その場合は `nginx.conf.template` の `/api/` と `/health` の `location` を削除します。
 
 ## GitHub 側の設定
 
@@ -30,11 +54,14 @@ URL 系の値は機密ではないため Secrets ではなく Variables に置�
 
 | Variable 名 | 用途 | 例 |
 |---|---|---|
-| `FRONTEND_ORIGIN` | フロントエンド公開 URL。CORS / Cookie 検証で使用 | `https://app.example.com` |
-| `BACKEND_ORIGIN` | バックエンド公開 URL。OAuth redirect URL の組立に使用 | `https://api.example.com` |
+| `FRONTEND_ORIGIN` | 利用者が開く公開 URL（frontend のオリジン）。ログイン後のリダイレクト先と、OAuth redirect URL の組立に使用 | `https://app.example.com` |
 | `MICROSOFT_TENANT_ID` | Microsoft でのサインインを許可する Entra テナントの ID かドメイン。Microsoft を使うときだけ設定する | `contoso.onmicrosoft.com` |
+| `INITIAL_ADMIN_EMAILS` | 初回ログインで `admin` にするメールアドレス（カンマ区切り） | `taro@example.co.jp,hanako@example.co.jp` |
+| `ALLOWED_EMAIL_DOMAINS` | ログインを許可するメールのドメイン（カンマ区切り） | `example.co.jp` |
 
-`FRONTEND_ORIGIN` と `BACKEND_ORIGIN` が未設定だと、`deploy.yml` の `Validate required variables` ステップが失敗します。
+`FRONTEND_ORIGIN` が未設定だと、`deploy.yml` の `Validate required variables` ステップが失敗します。
+カスタムドメインを使わない場合は、frontend の Cloud Run サービスの URL（`https://<サービス名>-<プロジェクト番号>.<リージョン>.run.app`）を設定します。
+初回は frontend をまだデプロイしていないため、Cloud Run のコンソールか `gcloud run services describe` で URL を確認してから設定し、もう一度デプロイしてください。
 
 バックエンドは、プロバイダが確認したメールアドレスでだけ新規ユーザーを作成します。
 Microsoft Graph が返すメールアドレスはテナントの管理者が任意の値に設定できるため、`MICROSOFT_TENANT_ID` で自組織のテナントに限定したときだけ受け付けます。
@@ -43,6 +70,25 @@ Microsoft Graph が返すメールアドレスはテナントの管理者が任�
 メールアドレスが一致しても、別のプロバイダで登録済みのユーザーには自動で連携しません。
 初回ログインのメールアドレスが既存ユーザーと一致した場合は 409 を返します。
 プロバイダが確認済みとするメールアドレスでも、退職や再割り当てで現在の所有者が変わっている場合があるためです。
+
+### サインアップの制限
+
+OAuth プロバイダのアカウントを持つ人は、既定では誰でもユーザー登録できます。
+社内向けのアプリでは、最初のデプロイの前に次の 2 つを設定してください。
+
+| 環境変数 | 設定したとき | 未設定のとき |
+|---|---|---|
+| `ALLOWED_EMAIL_DOMAINS` | メールアドレスのドメインが一致する人だけがログインできる。一致しない人は 403 で拒否し、ユーザーも作成しない | ドメインを制限しない。バックエンドは起動時に警告をログに出す |
+| `INITIAL_ADMIN_EMAILS` | 一致するメールアドレスの人は、初回ログインで `admin` になる | 誰も `admin` にならない。バックエンドは起動時に警告をログに出す |
+
+- どちらもカンマ区切りで複数指定でき、大文字と小文字を区別しません。
+- 「最初にログインした人が `admin` になる」動作はありません。指定していない人は、最初のログインでも `member` です。
+- `ALLOWED_EMAIL_DOMAINS` はドメイン全体を比較します。`example.co.jp` を許可しても `sub.example.co.jp` は許可されません。
+- `ALLOWED_EMAIL_DOMAINS` は登録済みのユーザーにも適用します。許可するドメインを後から絞ると、外れたユーザーは次回からログインできません。発行済みのセッションは有効期限（24 時間）まで残ります。
+- `INITIAL_ADMIN_EMAILS` は初回ログイン（ユーザー作成）のときだけ見ます。すでに `member` として登録済みの人は、追記しても昇格しません。既存の `admin` が `PUT /api/v1/users/{id}/role` でロールを変更してください（テンプレートにロール変更の画面はありません）。`admin` が 1 人もいない場合は、DB の `users.role` を直接更新します。
+- 判定に使うのは、プロバイダが確認済みとするメールアドレスです。GitHub は公開メールではなく、検証済みのプライマリメールを使います。
+
+ローカル開発では `.env` に同じ名前で設定します（`.env.example` を参照）。
 
 ## Google Cloud 側の設定
 
@@ -132,14 +178,16 @@ VPC 内の他のリソースと組み合わせる場合や、private IP のみ�
 
 > 詳細は <https://cloud.google.com/sql/docs/postgres/connect-run> を参照。
 
-## frontend の `${PORT}` 対応
+## frontend の `${PORT}` と `${BACKEND_URL}`
 
-[`frontend/Dockerfile`](../frontend/Dockerfile) は nginx 公式イメージの template 機能を利用して `${PORT}` を起動時に置換します。
+[`frontend/Dockerfile`](../frontend/Dockerfile) は nginx 公式イメージの template 機能を利用して `${PORT}` と `${BACKEND_URL}` を起動時に置換します。
 
 - `frontend/nginx.conf.template` の `listen ${PORT};` が起動時に envsubst で展開される
 - 既定値 `PORT=8080` が `Dockerfile` の `ENV` で設定されており、Cloud Run のデフォルト port と一致
 - 別 port で起動したい場合 (例: 開発時) は `docker run -e PORT=3000 -p 3000:3000 webapp-frontend`
-- `NGINX_ENVSUBST_FILTER=^PORT$` で envsubst の対象を `${PORT}` のみに限定し、nginx の `$uri` などを誤置換しない
+- `proxy_pass ${BACKEND_URL};` も同じ仕組みで展開される。`BACKEND_URL` にはパスを付けない（例: `https://webapp-template-api-xxxxx.a.run.app`）
+- `NGINX_ENVSUBST_FILTER=^(PORT|BACKEND_URL)$` で envsubst の対象をこの 2 つに限定し、nginx の `$uri` などを誤置換しない
+- 手元で確認するときは `docker run -e BACKEND_URL=http://host.docker.internal:8080 -p 8080:8080 webapp-frontend`
 
 このため `deploy.yml` の frontend deploy では `--port` を指定していません (Cloud Run のデフォルト 8080 を使用)。
 
@@ -149,11 +197,7 @@ VPC 内の他のリソースと組み合わせる場合や、private IP のみ�
 2. `main` ブランチに push (CI 成功後に自動デプロイ)
 3. 手動実行する場合は `Actions` タブから `Deploy to Cloud Run` workflow を再実行
 
-## ローカルからの手動デプロイ
-
-開発時の確認やトラブルシュート用に、ローカルから直接 deploy したい場合は `Makefile` の `make deploy` ターゲットを利用できます (個別環境設定が必要)。
-
 ## 既知の制限・今後の改善
 
-- 本テンプレートは現状 **アプリ起動時に DB マイグレーションを自動実行** します。本番運用では PR3 で予定している Cloud Run Job 化への移行が必須です。詳細は提案書 v2 を参照。
+- DB マイグレーションは Cloud Run Job（`deploy-migrate`）が backend のデプロイ前に実行します。アプリの起動時には実行しません。ロールバックは手動です。手順は [migration.md](migration.md) を参照してください。
 - frontend deploy は `--allow-unauthenticated` で公開しています。社内専用にする場合は IAP 等の追加設計が必要です。

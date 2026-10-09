@@ -39,22 +39,23 @@ _.file = [".env", ".env.local"]
 # ── タスク ──────────────────────────────────────────────────
 
 [tasks.setup]
-description = "プロジェクト初期セットアップ"
-run = """
-echo "=== mise: ツールインストール ==="
-mise install
+description = "プロジェクト初期セットアップ（Go モジュール取得 + pnpm install）"
+depends = ["setup:backend", "setup:cli", "setup:frontend"]
 
-echo "=== Backend: Go モジュール ==="
-cd backend && go mod download
+[tasks."setup:backend"]
+description = "バックエンドの Go モジュールを取得"
+dir = "backend"
+run = "go mod download"
 
-echo "=== CLI: Go モジュール ==="
-cd cli && go mod download
+[tasks."setup:cli"]
+description = "CLI の Go モジュールを取得"
+dir = "cli"
+run = "go mod download"
 
-echo "=== Frontend: pnpm install ==="
-cd frontend && pnpm install
-
-echo "=== セットアップ完了 ==="
-"""
+[tasks."setup:frontend"]
+description = "フロントエンドの依存パッケージをインストール"
+dir = "frontend"
+run = "pnpm install"
 
 [tasks.dev]
 description = "Docker Compose で開発環境を起動"
@@ -62,11 +63,13 @@ run = "docker compose up --build --watch"
 
 [tasks."dev:backend"]
 description = "バックエンドのみ起動（air ホットリロード）"
-run = "cd backend && air"
+dir = "backend"
+run = "air"
 
 [tasks."dev:frontend"]
 description = "フロントエンドのみ起動"
-run = "cd frontend && pnpm dev"
+dir = "frontend"
+run = "pnpm dev"
 
 [tasks."dev:down"]
 description = "開発環境を停止"
@@ -74,69 +77,66 @@ run = "docker compose down"
 
 [tasks.test]
 description = "全テスト実行"
-run = """
-echo "=== Backend Tests ==="
-cd backend && go test -v -race -cover ./...
-
-echo "=== CLI Tests ==="
-cd cli && go test -v -race -cover ./...
-
-echo "=== Frontend Tests ==="
-cd frontend && pnpm test
-"""
+depends = ["test:backend", "test:cli", "test:frontend"]
 
 [tasks."test:backend"]
 description = "バックエンドテストのみ"
-run = "cd backend && go test -v -race -cover ./..."
+dir = "backend"
+run = "go test -v -race -cover ./..."
 
 [tasks."test:frontend"]
 description = "フロントエンドテストのみ"
-run = "cd frontend && pnpm test"
+dir = "frontend"
+run = "pnpm test"
 
 [tasks."test:cli"]
 description = "CLI のテストのみ"
-run = "cd cli && go test -v -race -cover ./..."
+dir = "cli"
+run = "go test -v -race -cover ./..."
 
 [tasks."test:coverage"]
 description = "カバレッジレポート生成"
-run = """
-echo "=== Backend Coverage ==="
-cd backend && go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
+depends = ["test:coverage:backend", "test:coverage:cli", "test:coverage:frontend"]
 
-echo "=== CLI Coverage ==="
-cd cli && go test -race -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
+[tasks."test:coverage:backend"]
+description = "バックエンドのカバレッジレポート生成"
+dir = "backend"
+run = [
+  "go test -race -coverprofile=coverage.out ./...",
+  "go tool cover -html=coverage.out -o coverage.html",
+]
 
-echo "=== Frontend Coverage ==="
-cd frontend && pnpm test:coverage
-"""
+[tasks."test:coverage:cli"]
+description = "CLI のカバレッジレポート生成"
+dir = "cli"
+run = [
+  "go test -race -coverprofile=coverage.out ./...",
+  "go tool cover -html=coverage.out -o coverage.html",
+]
+
+[tasks."test:coverage:frontend"]
+description = "フロントエンドのカバレッジレポート生成"
+dir = "frontend"
+run = "pnpm test:coverage"
 
 [tasks.lint]
 description = "静的解析（全体）"
-run = """
-echo "=== Backend Lint ==="
-cd backend && golangci-lint run ./...
-
-echo "=== CLI Lint ==="
-cd cli && golangci-lint run ./...
-
-echo "=== Frontend Lint ==="
-cd frontend && pnpm lint && pnpm type-check
-
-echo "=== Markdown Lint ==="
-markdownlint-cli2
-"""
+depends = ["lint:backend", "lint:cli", "lint:frontend", "lint:markdown"]
 
 [tasks."lint:backend"]
 description = "バックエンド Lint のみ"
-run = "cd backend && golangci-lint run ./..."
+dir = "backend"
+run = "golangci-lint run ./..."
 
 [tasks."lint:frontend"]
 description = "フロントエンド Lint のみ"
-run = "cd frontend && pnpm lint && pnpm type-check"
+dir = "frontend"
+run = ["pnpm lint", "pnpm type-check"]
 
 [tasks."lint:cli"]
 description = "CLI Lint のみ"
-run = "cd cli && golangci-lint run ./..."
+dir = "cli"
+run = "golangci-lint run ./..."
 
 [tasks."lint:markdown"]
 description = "Markdown（markdownlint-cli2）のみ"
@@ -144,27 +144,37 @@ run = "markdownlint-cli2"
 
 [tasks.fmt]
 description = "コードフォーマット（Go + Prettier + Markdown）"
-run = """
-echo "=== Go fmt ==="
-cd backend && gofmt -w .
-cd cli && gofmt -w .
+depends = ["fmt:backend", "fmt:cli", "fmt:frontend"]
+run = "markdownlint-cli2 --fix"
 
-echo "=== Prettier ==="
-cd frontend && pnpm format
+[tasks."fmt:backend"]
+description = "バックエンドを gofmt で整形"
+dir = "backend"
+run = "gofmt -w ."
 
-echo "=== Markdown fix ==="
-markdownlint-cli2 --fix
-"""
+[tasks."fmt:cli"]
+description = "CLI を gofmt で整形"
+dir = "cli"
+run = "gofmt -w ."
+
+[tasks."fmt:frontend"]
+description = "フロントエンドを Prettier で整形"
+dir = "frontend"
+run = "pnpm format"
 
 [tasks.build]
 description = "本番用 Docker イメージビルド"
-run = """
-echo "=== Backend Build ==="
-cd backend && docker build -t webapp-backend .
+depends = ["build:backend", "build:frontend"]
 
-echo "=== Frontend Build ==="
-cd frontend && docker build -t webapp-frontend .
-"""
+[tasks."build:backend"]
+description = "バックエンドの Docker イメージビルド"
+dir = "backend"
+run = "docker build -t webapp-backend ."
+
+[tasks."build:frontend"]
+description = "フロントエンドの Docker イメージビルド"
+dir = "frontend"
+run = "docker build -t webapp-frontend ."
 
 [tasks."db:up"]
 description = "DB コンテナのみ起動"
@@ -195,12 +205,24 @@ psql "${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode
 
 [tasks.clean]
 description = "ビルド成果物をクリーンアップ"
-run = """
-docker compose down -v
-cd backend && rm -f coverage.out coverage.html server
-cd cli && rm -f coverage.out coverage.html webapp-cli
-cd frontend && rm -rf dist coverage
-"""
+depends = ["clean:backend", "clean:cli", "clean:frontend"]
+run = "docker compose down -v"
+
+# rm は Windows の既定シェルにないため、mise が管理する node で削除する
+[tasks."clean:backend"]
+description = "バックエンドのビルド成果物を削除"
+dir = "backend"
+run = "node -e \"for (const f of ['coverage.out', 'coverage.html', 'server', 'server.exe']) fs.rmSync(f, { force: true })\""
+
+[tasks."clean:cli"]
+description = "CLI のビルド成果物を削除"
+dir = "cli"
+run = "node -e \"for (const f of ['coverage.out', 'coverage.html', 'webapp-cli', 'webapp-cli.exe']) fs.rmSync(f, { force: true })\""
+
+[tasks."clean:frontend"]
+description = "フロントエンドのビルド成果物を削除"
+dir = "frontend"
+run = "node -e \"for (const f of ['dist', 'coverage']) fs.rmSync(f, { recursive: true, force: true })\""
 
 [tasks.check]
 description = "CI 相当のチェック（lint + test）"
@@ -208,15 +230,13 @@ depends = ["lint", "test"]
 
 [tasks.info]
 description = "現在の開発環境情報を表示"
-run = """
-echo "=== mise ツールバージョン ==="
-mise current
-echo ""
-go version
-node --version
-python --version
-pnpm --version
-uv --version
-gh --version
-gcloud --version
-"""
+run = [
+  "mise current",
+  "go version",
+  "node --version",
+  "python --version",
+  "pnpm --version",
+  "uv --version",
+  "gh --version",
+  "gcloud --version",
+]

@@ -39,7 +39,7 @@ func TestAuthUsecase_GetAuthURL(t *testing.T) {
 }
 
 func TestAuthUsecase_HandleCallback(t *testing.T) {
-	t.Run("正常系: 新規ユーザー（初回=admin）", func(t *testing.T) {
+	t.Run("正常系: 最初のユーザーでも、初期管理者に指定していなければ member", func(t *testing.T) {
 		userRepo := mock.NewUserRepository()
 		providerRepo := mock.NewUserProviderRepository()
 		userRepo.ProviderRepo = providerRepo
@@ -67,8 +67,8 @@ func TestAuthUsecase_HandleCallback(t *testing.T) {
 		if !result.IsNewUser {
 			t.Error("expected new user")
 		}
-		if result.User.Role != domain.RoleAdmin {
-			t.Errorf("first user role = %s, want admin", result.User.Role)
+		if result.User.Role != domain.RoleMember {
+			t.Errorf("first user role = %s, want member", result.User.Role)
 		}
 		if result.SessionToken != "session-token" {
 			t.Errorf("session token = %s, want session-token", result.SessionToken)
@@ -333,8 +333,8 @@ func TestAuthUsecase_HandleCallback(t *testing.T) {
 		if !result.IsNewUser {
 			t.Error("expected new user on retry")
 		}
-		if result.User.Role != domain.RoleAdmin {
-			t.Errorf("role = %s, want admin", result.User.Role)
+		if result.User.Role != domain.RoleMember {
+			t.Errorf("role = %s, want member", result.User.Role)
 		}
 
 		// 以後は連携済みのユーザーとしてログインできる

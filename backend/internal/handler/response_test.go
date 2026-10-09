@@ -40,6 +40,7 @@ func TestWriteError(t *testing.T) {
 		{"ErrUnauthorized は 401", domain.ErrUnauthorized, http.StatusUnauthorized, "unauthorized", false},
 		{"ErrForbidden は 403", domain.ErrForbidden, http.StatusForbidden, "forbidden", false},
 		{"ErrEmailNotVerified は 403", fmt.Errorf("%w: provider google", domain.ErrEmailNotVerified), http.StatusForbidden, "email not verified by provider", false},
+		{"ErrEmailDomainNotAllowed は 403", fmt.Errorf("%w: provider google", domain.ErrEmailDomainNotAllowed), http.StatusForbidden, "email domain not allowed", false},
 		{"ErrAlreadyExists は 409", domain.ErrAlreadyExists, http.StatusConflict, "already exists", false},
 		{"ErrAccountLinkRequired は 409", domain.ErrAccountLinkRequired, http.StatusConflict, "email already registered with another provider", false},
 		{"それ以外は 500 でログに残す", errors.New("pq: connection refused"), http.StatusInternalServerError, "internal server error", true},

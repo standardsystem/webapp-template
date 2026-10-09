@@ -33,6 +33,8 @@ URL 系の値は機密ではないため Secrets ではなく Variables に置�
 | `FRONTEND_ORIGIN` | フロントエンド公開 URL。CORS / Cookie 検証で使用 | `https://app.example.com` |
 | `BACKEND_ORIGIN` | バックエンド公開 URL。OAuth redirect URL の組立に使用 | `https://api.example.com` |
 | `MICROSOFT_TENANT_ID` | Microsoft でのサインインを許可する Entra テナントの ID かドメイン。Microsoft を使うときだけ設定する | `contoso.onmicrosoft.com` |
+| `INITIAL_ADMIN_EMAILS` | 初回ログインで `admin` にするメールアドレス（カンマ区切り） | `taro@example.co.jp,hanako@example.co.jp` |
+| `ALLOWED_EMAIL_DOMAINS` | ログインを許可するメールのドメイン（カンマ区切り） | `example.co.jp` |
 
 `FRONTEND_ORIGIN` と `BACKEND_ORIGIN` が未設定だと、`deploy.yml` の `Validate required variables` ステップが失敗します。
 
@@ -43,6 +45,25 @@ Microsoft Graph が返すメールアドレスはテナントの管理者が任�
 メールアドレスが一致しても、別のプロバイダで登録済みのユーザーには自動で連携しません。
 初回ログインのメールアドレスが既存ユーザーと一致した場合は 409 を返します。
 プロバイダが確認済みとするメールアドレスでも、退職や再割り当てで現在の所有者が変わっている場合があるためです。
+
+### サインアップの制限
+
+OAuth プロバイダのアカウントを持つ人は、既定では誰でもユーザー登録できます。
+社内向けのアプリでは、最初のデプロイの前に次の 2 つを設定してください。
+
+| 環境変数 | 設定したとき | 未設定のとき |
+|---|---|---|
+| `ALLOWED_EMAIL_DOMAINS` | メールアドレスのドメインが一致する人だけがログインできる。一致しない人は 403 で拒否し、ユーザーも作成しない | ドメインを制限しない。バックエンドは起動時に警告をログに出す |
+| `INITIAL_ADMIN_EMAILS` | 一致するメールアドレスの人は、初回ログインで `admin` になる | 誰も `admin` にならない。バックエンドは起動時に警告をログに出す |
+
+- どちらもカンマ区切りで複数指定でき、大文字と小文字を区別しません。
+- 「最初にログインした人が `admin` になる」動作はありません。指定していない人は、最初のログインでも `member` です。
+- `ALLOWED_EMAIL_DOMAINS` はドメイン全体を比較します。`example.co.jp` を許可しても `sub.example.co.jp` は許可されません。
+- `ALLOWED_EMAIL_DOMAINS` は登録済みのユーザーにも適用します。許可するドメインを後から絞ると、外れたユーザーは次回からログインできません。発行済みのセッションは有効期限（24 時間）まで残ります。
+- `INITIAL_ADMIN_EMAILS` は初回ログイン（ユーザー作成）のときだけ見ます。すでに `member` として登録済みの人は、追記しても昇格しません。既存の `admin` が `PUT /api/v1/users/{id}/role` でロールを変更してください（テンプレートにロール変更の画面はありません）。`admin` が 1 人もいない場合は、DB の `users.role` を直接更新します。
+- 判定に使うのは、プロバイダが確認済みとするメールアドレスです。GitHub は公開メールではなく、検証済みのプライマリメールを使います。
+
+ローカル開発では `.env` に同じ名前で設定します（`.env.example` を参照）。
 
 ## Google Cloud 側の設定
 

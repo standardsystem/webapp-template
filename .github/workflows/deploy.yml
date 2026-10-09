@@ -17,6 +17,10 @@ env:
   FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
   BACKEND_ORIGIN: ${{ vars.BACKEND_ORIGIN }}
   MICROSOFT_TENANT_ID: ${{ vars.MICROSOFT_TENANT_ID }}
+  #   INITIAL_ADMIN_EMAILS:  初回ログインで admin にするメールアドレス（カンマ区切り）
+  #   ALLOWED_EMAIL_DOMAINS: ログインを許可するメールのドメイン（カンマ区切り）。未設定なら制限しない
+  INITIAL_ADMIN_EMAILS: ${{ vars.INITIAL_ADMIN_EMAILS }}
+  ALLOWED_EMAIL_DOMAINS: ${{ vars.ALLOWED_EMAIL_DOMAINS }}
 
 jobs:
   # CI が成功した場合のみデプロイを実行
@@ -117,13 +121,15 @@ jobs:
       - name: Deploy Backend to Cloud Run
         run: |
           IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/webapp/${{ env.BACKEND_SERVICE }}:${{ github.sha }}"
+          # INITIAL_ADMIN_EMAILS と ALLOWED_EMAIL_DOMAINS は値にカンマを含むため、
+          # --set-env-vars の区切り文字を ## に変えている（gcloud topic escaping）。
           gcloud run deploy ${{ env.BACKEND_SERVICE }} \
             --image="$IMAGE" \
             --region=${{ env.GCP_REGION }} \
             --platform=managed \
             --allow-unauthenticated \
             --set-secrets="DATABASE_URL=database-url:latest,JWT_SECRET=jwt-secret:latest,GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest,GITHUB_CLIENT_ID=github-client-id:latest,GITHUB_CLIENT_SECRET=github-client-secret:latest,MICROSOFT_CLIENT_ID=microsoft-client-id:latest,MICROSOFT_CLIENT_SECRET=microsoft-client-secret:latest" \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},FRONTEND_ORIGIN=${{ env.FRONTEND_ORIGIN }},COOKIE_SECURE=true,GOOGLE_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/google/callback,GITHUB_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/github/callback,MICROSOFT_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/microsoft/callback,MICROSOFT_TENANT_ID=${{ env.MICROSOFT_TENANT_ID }}" \
+            --set-env-vars="^##^GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }}##FRONTEND_ORIGIN=${{ env.FRONTEND_ORIGIN }}##COOKIE_SECURE=true##GOOGLE_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/google/callback##GITHUB_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/github/callback##MICROSOFT_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/microsoft/callback##MICROSOFT_TENANT_ID=${{ env.MICROSOFT_TENANT_ID }}##INITIAL_ADMIN_EMAILS=${{ env.INITIAL_ADMIN_EMAILS }}##ALLOWED_EMAIL_DOMAINS=${{ env.ALLOWED_EMAIL_DOMAINS }}" \
             --memory=512Mi \
             --cpu=1 \
             --min-instances=0 \

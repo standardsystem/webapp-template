@@ -98,12 +98,21 @@ func main() {
 		providers["microsoft"] = microsoft
 	}
 
+	// --- サインアップの制限 ---
+	signupPolicy := usecase.ParseSignupPolicy(os.Getenv("INITIAL_ADMIN_EMAILS"), os.Getenv("ALLOWED_EMAIL_DOMAINS"))
+	if !signupPolicy.RestrictsDomains() {
+		slog.Warn("ALLOWED_EMAIL_DOMAINS is not set; anyone with an account at a configured OAuth provider can sign up as a member")
+	}
+	if !signupPolicy.HasInitialAdmins() {
+		slog.Warn("INITIAL_ADMIN_EMAILS is not set; no new user will be given the admin role")
+	}
+
 	// --- リポジトリ ---
 	userRepo := repository.NewPostgresUserRepository(pool)
 	providerRepo := repository.NewPostgresUserProviderRepository(pool)
 
 	// --- ユースケース ---
-	authUC := usecase.NewAuthUsecase(userRepo, providerRepo, sessionSvc, providers)
+	authUC := usecase.NewAuthUsecase(userRepo, providerRepo, sessionSvc, providers, usecase.WithSignupPolicy(signupPolicy))
 	userUC := usecase.NewUserUsecase(userRepo)
 
 	// --- ハンドラ・ミドルウェア ---

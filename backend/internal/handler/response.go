@@ -30,6 +30,7 @@ var errorResponses = []struct {
 	{domain.ErrUnauthorized, http.StatusUnauthorized, "unauthorized"},
 	{domain.ErrForbidden, http.StatusForbidden, "forbidden"},
 	{domain.ErrEmailNotVerified, http.StatusForbidden, "email not verified by provider"},
+	{domain.ErrEmailDomainNotAllowed, http.StatusForbidden, "email domain not allowed"},
 	{domain.ErrAlreadyExists, http.StatusConflict, "already exists"},
 	{domain.ErrAccountLinkRequired, http.StatusConflict, "email already registered with another provider"},
 }

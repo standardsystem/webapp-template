@@ -20,6 +20,8 @@ var (
 	// ErrAccountLinkRequired は、同じメールアドレスのユーザーが別のプロバイダで登録済みであることを表します。
 	// メールアドレスの一致だけでは連携せず、ログイン済みのユーザーによる明示的な連携を必要とします。
 	ErrAccountLinkRequired = errors.New("account link required")
+	// ErrEmailDomainNotAllowed は、メールアドレスのドメインがログインを許可されていないことを表します。
+	ErrEmailDomainNotAllowed = errors.New("email domain not allowed")
 )
 
 // --- ロール定義 ---

@@ -25,6 +25,8 @@ services:
       DATABASE_URL: "postgres://postgres:password@db:5432/webapp?sslmode=disable"
       JWT_SECRET: "dev-secret-change-in-production-at-least-32-chars"
       COOKIE_SECURE: "false"
+      INITIAL_ADMIN_EMAILS: "${INITIAL_ADMIN_EMAILS:-}"
+      ALLOWED_EMAIL_DOMAINS: "${ALLOWED_EMAIL_DOMAINS:-}"
       GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
       GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
       GOOGLE_REDIRECT_URL: "http://localhost:8080/api/v1/auth/google/callback"

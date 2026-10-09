@@ -55,7 +55,13 @@ mise run fmt              # gofmt + Prettier + markdownlint --fix
 mise run lint:markdown
 mise run fmt:markdown
 mise run check            # lint + test（CI 相当）
+mise run db:up            # DB コンテナのみ起動
+mise run db:migrate       # マイグレーション適用
+mise run db:migrate:version   # 現在のバージョンと dirty フラグを表示
 ```
+
+`make dev` や `make check` のように、同名の `make` ターゲットも使えます（`:` は `-` に読み替えます。例: `make db-migrate-version`）。
+実体は `.mise.toml` のタスクです。
 
 ## Markdown
 
@@ -77,5 +83,3 @@ pre-commit install
 デプロイ手順、必要な GitHub Secrets / Variables、Google Cloud IAM、Artifact Registry、
 Secret Manager、Cloud SQL 接続方式、frontend の `${PORT}` 対応については
 [deployment.md](deployment.md) を参照してください。
-
-ローカルからの手動デプロイはルートの `Makefile` の `make deploy` を参照してください。

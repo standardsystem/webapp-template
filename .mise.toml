@@ -144,8 +144,7 @@ run = "markdownlint-cli2"
 
 [tasks.fmt]
 description = "コードフォーマット（Go + Prettier + Markdown）"
-depends = ["fmt:backend", "fmt:cli", "fmt:frontend"]
-run = "markdownlint-cli2 --fix"
+depends = ["fmt:backend", "fmt:cli", "fmt:frontend", "fmt:markdown"]
 
 [tasks."fmt:backend"]
 description = "バックエンドを gofmt で整形"
@@ -161,6 +160,10 @@ run = "gofmt -w ."
 description = "フロントエンドを Prettier で整形"
 dir = "frontend"
 run = "pnpm format"
+
+[tasks."fmt:markdown"]
+description = "Markdown を markdownlint-cli2 --fix で自動修正"
+run = "markdownlint-cli2 --fix"
 
 [tasks.build]
 description = "本番用 Docker イメージビルド"
@@ -180,28 +183,27 @@ run = "docker build -t webapp-frontend ."
 description = "DB コンテナのみ起動"
 run = "docker compose up -d db"
 
+# 接続先は DATABASE_URL（.env またはシェルの環境変数）で変更できる。未設定なら compose の DB を使う
 [tasks."db:migrate"]
 description = "DB マイグレーション実行（golang-migrate）"
 depends = ["db:up"]
-run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate up"
+dir = "backend"
+env = { DATABASE_URL = "{{ env.DATABASE_URL | default(value='postgres://postgres:password@localhost:5432/webapp?sslmode=disable') }}" }
+run = "go run ./cmd/migrate up"
 
 [tasks."db:migrate:down"]
 description = "DB マイグレーションを 1 つ戻す（golang-migrate）"
 depends = ["db:up"]
-run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate down"
+dir = "backend"
+env = { DATABASE_URL = "{{ env.DATABASE_URL | default(value='postgres://postgres:password@localhost:5432/webapp?sslmode=disable') }}" }
+run = "go run ./cmd/migrate down"
 
 [tasks."db:migrate:version"]
-description = "DB マイグレーションの現在バージョンを表示"
+description = "DB マイグレーションの現在バージョンと dirty フラグを表示"
 depends = ["db:up"]
-run = "cd backend && DATABASE_URL=\"${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}\" go run ./cmd/migrate version"
-
-[tasks."db:status"]
-description = "DB マイグレーション状態確認"
-depends = ["db:up"]
-run = """
-psql "${DATABASE_URL:-postgres://postgres:password@localhost:5432/webapp?sslmode=disable}" \
-  -c "SELECT version, applied_at FROM schema_migrations ORDER BY version;"
-"""
+dir = "backend"
+env = { DATABASE_URL = "{{ env.DATABASE_URL | default(value='postgres://postgres:password@localhost:5432/webapp?sslmode=disable') }}" }
+run = "go run ./cmd/migrate version"
 
 [tasks.clean]
 description = "ビルド成果物をクリーンアップ"

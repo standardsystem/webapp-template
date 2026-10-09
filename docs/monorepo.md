@@ -35,4 +35,4 @@ cd cli && go build -o webapp-cli ./cmd/webapp-cli
 ## 運用上の境界
 
 - **API と CLI** は別モジュール。共通ドメインを切り出す場合は `backend/internal` を直接 import せず、必要なら共有用の小さな内部モジュールや生成コードを別途検討します（テンプレート段階では未分離）。
-- **ドキュメント** は `docs/` を正とし、ルートの `AGENTS.md` / `CLAUDE.md` はツール向けの要約＋リンクを残します。
+- **ドキュメント** は人向けを `docs/` に、エージェント向けの指示をルートと各パッケージの `AGENTS.md` に置きます（[ai-agents.md](ai-agents.md)）。

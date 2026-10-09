@@ -15,6 +15,11 @@ var (
 	ErrInvalidInput  = errors.New("invalid input")
 	ErrUnauthorized  = errors.New("unauthorized")
 	ErrForbidden     = errors.New("forbidden")
+	// ErrEmailNotVerified は、プロバイダがメールアドレスの所有を確認していないことを表します。
+	ErrEmailNotVerified = errors.New("email not verified")
+	// ErrAccountLinkRequired は、同じメールアドレスのユーザーが別のプロバイダで登録済みであることを表します。
+	// メールアドレスの一致だけでは連携せず、ログイン済みのユーザーによる明示的な連携を必要とします。
+	ErrAccountLinkRequired = errors.New("account link required")
 )
 
 // --- ロール定義 ---
@@ -70,6 +75,9 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	FindAll(ctx context.Context) ([]*User, error)
 	Save(ctx context.Context, user *User) error
+	// CreateWithProvider は、新規ユーザーとプロバイダ紐付けを 1 つのトランザクションで保存します。
+	// どちらかの保存に失敗したときは、両方とも保存しません。
+	CreateWithProvider(ctx context.Context, user *User, up *UserProvider) error
 	Delete(ctx context.Context, id string) error
 	Count(ctx context.Context) (int64, error)
 }

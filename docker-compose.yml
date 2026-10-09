@@ -34,6 +34,7 @@ services:
       MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID}"
       MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET}"
       MICROSOFT_REDIRECT_URL: "http://localhost:8080/api/v1/auth/microsoft/callback"
+      MICROSOFT_TENANT_ID: "${MICROSOFT_TENANT_ID}"
     depends_on:
       db:
         condition: service_healthy

@@ -13,27 +13,55 @@ import (
 )
 
 const (
-	microsoftAuthURL     = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
-	microsoftTokenURL    = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
-	microsoftUserInfoURL = "https://graph.microsoft.com/v1.0/me"
+	microsoftLoginBaseURL = "https://login.microsoftonline.com/"
+	microsoftUserInfoURL  = "https://graph.microsoft.com/v1.0/me"
+	microsoftCommonTenant = "common"
 )
+
+// microsoftMultiTenantAliases は、複数のテナントからのサインインを受け付けるエンドポイントの別名です。
+var microsoftMultiTenantAliases = map[string]bool{
+	microsoftCommonTenant: true,
+	"organizations":       true,
+	"consumers":           true,
+}
 
 // MicrosoftOAuthProvider は Microsoft の OAuth2/OIDC プロバイダ実装です。
 type MicrosoftOAuthProvider struct {
 	clientID     string
 	clientSecret string
 	redirectURL  string
+	tenantID     string
 	httpClient   *http.Client
 }
 
 // NewMicrosoftOAuthProvider は MicrosoftOAuthProvider を生成します。
-func NewMicrosoftOAuthProvider(clientID, clientSecret, redirectURL string, httpClient *http.Client) *MicrosoftOAuthProvider {
+//
+// tenantID にはサインインを許可する Entra テナントの ID かドメインを渡します。
+// Microsoft Graph の mail と userPrincipalName はテナントの管理者が任意の値に設定できるため、
+// 自組織のテナントに限定したときだけ EmailVerified を真にして、新規ユーザーの作成を許可します。
+// 空文字や common・organizations・consumers を渡すと EmailVerified は偽になります。
+// ゲストユーザーの mail は古いままのことがあるため、真でも現在の所有者は保証されません。
+func NewMicrosoftOAuthProvider(clientID, clientSecret, redirectURL, tenantID string, httpClient *http.Client) *MicrosoftOAuthProvider {
+	tenantID = strings.ToLower(strings.TrimSpace(tenantID))
+	if tenantID == "" {
+		tenantID = microsoftCommonTenant
+	}
 	return &MicrosoftOAuthProvider{
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		redirectURL:  redirectURL,
+		tenantID:     tenantID,
 		httpClient:   httpClient,
 	}
+}
+
+// RestrictsTenant は、サインインを単一のテナントに限定しているかどうかを返します。
+func (m *MicrosoftOAuthProvider) RestrictsTenant() bool {
+	return !microsoftMultiTenantAliases[m.tenantID]
+}
+
+func (m *MicrosoftOAuthProvider) endpoint(name string) string {
+	return microsoftLoginBaseURL + url.PathEscape(m.tenantID) + "/oauth2/v2.0/" + name
 }
 
 func (m *MicrosoftOAuthProvider) Name() string {
@@ -49,7 +77,7 @@ func (m *MicrosoftOAuthProvider) AuthURL(state string) string {
 		"state":         {state},
 		"response_mode": {"query"},
 	}
-	return microsoftAuthURL + "?" + params.Encode()
+	return m.endpoint("authorize") + "?" + params.Encode()
 }
 
 func (m *MicrosoftOAuthProvider) Exchange(ctx context.Context, code string) (*domain.OAuthToken, error) {
@@ -62,7 +90,7 @@ func (m *MicrosoftOAuthProvider) Exchange(ctx context.Context, code string) (*do
 		"scope":         {"openid email profile User.Read"},
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, microsoftTokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.endpoint("token"), strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token request: %w", err)
 	}
@@ -127,8 +155,9 @@ func (m *MicrosoftOAuthProvider) UserInfo(ctx context.Context, token *domain.OAu
 	}
 
 	return &domain.OAuthUserInfo{
-		ProviderID: info.ID,
-		Email:      email,
-		Name:       info.DisplayName,
+		ProviderID:    info.ID,
+		Email:         email,
+		EmailVerified: m.RestrictsTenant(),
+		Name:          info.DisplayName,
 	}, nil
 }

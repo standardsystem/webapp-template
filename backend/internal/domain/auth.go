@@ -8,8 +8,12 @@ import "context"
 type OAuthUserInfo struct {
 	ProviderID string // プロバイダ側の一意な ID
 	Email      string
-	Name       string
-	AvatarURL  string
+	// EmailVerified は、プロバイダが Email を確認したことがあるかどうかです。
+	// 偽のときは新規ユーザーを作成しません。
+	// 真でも現在の所有者までは保証されないため、既存ユーザーへの連携の根拠にはしません。
+	EmailVerified bool
+	Name          string
+	AvatarURL     string
 }
 
 // OAuthToken はプロバイダから取得したトークンです。

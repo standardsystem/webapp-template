@@ -4,11 +4,13 @@ package repository_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/your-org/webapp-template/internal/domain"
@@ -248,4 +250,43 @@ func TestPostgresUserRepository_Count(t *testing.T) {
 	if count != 2 {
 		t.Errorf("count = %d, want 2", count)
 	}
+}
+
+func TestPostgresUserRepository_CreateWithProvider(t *testing.T) {
+	pool := testPool(t)
+	cleanUsers(t, pool)
+	t.Cleanup(func() { cleanUsers(t, pool) })
+
+	repo := repository.NewPostgresUserRepository(pool)
+	providerRepo := repository.NewPostgresUserProviderRepository(pool)
+	ctx := context.Background()
+
+	first := newTestUser(uuid.New().String(), "First", "first@example.com")
+	firstLink := &domain.UserProvider{ID: uuid.New().String(), UserID: first.ID, Provider: "google", ProviderID: "google-1"}
+
+	t.Run("正常系: ユーザーと紐付けを保存", func(t *testing.T) {
+		if err := repo.CreateWithProvider(ctx, first, firstLink); err != nil {
+			t.Fatalf("CreateWithProvider failed: %v", err)
+		}
+		got, err := providerRepo.FindByProviderAndProviderID(ctx, "google", "google-1")
+		if err != nil {
+			t.Fatalf("FindByProviderAndProviderID failed: %v", err)
+		}
+		if got.UserID != first.ID {
+			t.Errorf("UserID = %s, want %s", got.UserID, first.ID)
+		}
+	})
+
+	t.Run("異常系: 紐付けの保存に失敗したらユーザーもロールバック", func(t *testing.T) {
+		second := newTestUser(uuid.New().String(), "Second", "second@example.com")
+		// 紐付けが (provider, provider_id) の一意制約に違反する
+		dupLink := &domain.UserProvider{ID: uuid.New().String(), UserID: second.ID, Provider: "google", ProviderID: "google-1"}
+
+		if err := repo.CreateWithProvider(ctx, second, dupLink); err == nil {
+			t.Fatal("expected error for duplicate provider link")
+		}
+		if _, err := repo.FindByEmail(ctx, "second@example.com"); !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("FindByEmail err = %v, want ErrNotFound (user must be rolled back)", err)
+		}
+	})
 }

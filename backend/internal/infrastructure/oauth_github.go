@@ -117,7 +117,6 @@ func (g *GitHubOAuthProvider) UserInfo(ctx context.Context, token *domain.OAuthT
 		Login     string `json:"login"`
 		Name      string `json:"name"`
 		AvatarURL string `json:"avatar_url"`
-		Email     string `json:"email"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		return nil, fmt.Errorf("failed to decode userinfo response: %w", err)
@@ -128,24 +127,22 @@ func (g *GitHubOAuthProvider) UserInfo(ctx context.Context, token *domain.OAuthT
 		name = info.Login
 	}
 
-	email := info.Email
-	if email == "" {
-		// GitHub ではメールが非公開の場合があるため、emails API で取得
-		email, err = g.fetchPrimaryEmail(ctx, token.AccessToken)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch email: %w", err)
-		}
+	// /user の email は検証済みかどうかが分からないため使わず、emails API の検証済みメールだけを使う
+	email, err := g.fetchPrimaryEmail(ctx, token.AccessToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch email: %w", err)
 	}
 
 	return &domain.OAuthUserInfo{
-		ProviderID: fmt.Sprintf("%d", info.ID),
-		Email:      email,
-		Name:       name,
-		AvatarURL:  info.AvatarURL,
+		ProviderID:    fmt.Sprintf("%d", info.ID),
+		Email:         email,
+		EmailVerified: true,
+		Name:          name,
+		AvatarURL:     info.AvatarURL,
 	}, nil
 }
 
-// fetchPrimaryEmail は GitHub の emails API からプライマリメールを取得します。
+// fetchPrimaryEmail は GitHub の emails API から検証済みのプライマリメールを取得します。
 func (g *GitHubOAuthProvider) fetchPrimaryEmail(ctx context.Context, accessToken string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubEmailURL, nil)
 	if err != nil {
@@ -158,6 +155,11 @@ func (g *GitHubOAuthProvider) fetchPrimaryEmail(ctx context.Context, accessToken
 		return "", fmt.Errorf("failed to get emails: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("emails request failed (status %d): %s", resp.StatusCode, body)
+	}
 
 	var emails []struct {
 		Email    string `json:"email"`

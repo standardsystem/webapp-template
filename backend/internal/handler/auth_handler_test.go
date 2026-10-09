@@ -3,6 +3,7 @@ package handler_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -207,6 +208,54 @@ func TestAuthHandler_Callback(t *testing.T) {
 
 		if rec.Code != http.StatusInternalServerError {
 			t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+		}
+	})
+
+	t.Run("異常系: メール未検証は 403 でセッションを発行しない", func(t *testing.T) {
+		svc := &mock.AuthService{
+			CallbackErr: fmt.Errorf("%w: provider microsoft", domain.ErrEmailNotVerified),
+		}
+		h := newTestAuthHandler(svc)
+
+		r := chi.NewRouter()
+		r.Mount("/auth", h.Router())
+
+		req := httptest.NewRequest(http.MethodGet, "/auth/microsoft/callback?code=authcode&state=s", nil)
+		req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "s"})
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("status = %d, want %d", rec.Code, http.StatusForbidden)
+		}
+		for _, c := range rec.Result().Cookies() {
+			if c.Name == "session_token" {
+				t.Error("session_token cookie must not be set")
+			}
+		}
+	})
+
+	t.Run("異常系: メールが別プロバイダで登録済みなら 409 でセッションを発行しない", func(t *testing.T) {
+		svc := &mock.AuthService{
+			CallbackErr: fmt.Errorf("%w: provider github", domain.ErrAccountLinkRequired),
+		}
+		h := newTestAuthHandler(svc)
+
+		r := chi.NewRouter()
+		r.Mount("/auth", h.Router())
+
+		req := httptest.NewRequest(http.MethodGet, "/auth/github/callback?code=authcode&state=s", nil)
+		req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "s"})
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusConflict {
+			t.Errorf("status = %d, want %d", rec.Code, http.StatusConflict)
+		}
+		for _, c := range rec.Result().Cookies() {
+			if c.Name == "session_token" {
+				t.Error("session_token cookie must not be set")
+			}
 		}
 	})
 }

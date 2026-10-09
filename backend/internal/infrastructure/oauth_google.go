@@ -112,19 +112,21 @@ func (g *GoogleOAuthProvider) UserInfo(ctx context.Context, token *domain.OAuthT
 	}
 
 	var info struct {
-		ID      string `json:"id"`
-		Email   string `json:"email"`
-		Name    string `json:"name"`
-		Picture string `json:"picture"`
+		ID            string `json:"id"`
+		Email         string `json:"email"`
+		VerifiedEmail bool   `json:"verified_email"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		return nil, fmt.Errorf("failed to decode userinfo response: %w", err)
 	}
 
 	return &domain.OAuthUserInfo{
-		ProviderID: info.ID,
-		Email:      info.Email,
-		Name:       info.Name,
-		AvatarURL:  info.Picture,
+		ProviderID:    info.ID,
+		Email:         info.Email,
+		EmailVerified: info.VerifiedEmail,
+		Name:          info.Name,
+		AvatarURL:     info.Picture,
 	}, nil
 }

@@ -87,45 +87,46 @@ func (a *AuthUsecase) HandleCallback(ctx context.Context, providerName, code str
 			return nil, fmt.Errorf("failed to find provider link: %w", err)
 		}
 
-		// 4a. 新規ユーザー: メールで既存ユーザーを検索（別プロバイダで登録済みの可能性）
-		user, err = a.userRepo.FindByEmail(ctx, userInfo.Email)
-		if err != nil {
-			if !errors.Is(err, domain.ErrNotFound) {
-				return nil, fmt.Errorf("failed to find user by email: %w", err)
-			}
-
-			// 完全な新規ユーザーを作成
-			role, err := a.determineRole(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to determine role: %w", err)
-			}
-
-			now := time.Now().UTC()
-			user = &domain.User{
-				ID:        uuid.New().String(),
-				Name:      userInfo.Name,
-				Email:     userInfo.Email,
-				AvatarURL: userInfo.AvatarURL,
-				Role:      role,
-				CreatedAt: now,
-				UpdatedAt: now,
-			}
-			if err := a.userRepo.Save(ctx, user); err != nil {
-				return nil, fmt.Errorf("failed to save new user: %w", err)
-			}
-			isNewUser = true
+		// 4a. 新規ユーザー: プロバイダが確認したメールのときだけ作成する
+		if !userInfo.EmailVerified || userInfo.Email == "" {
+			return nil, fmt.Errorf("%w: provider %s", domain.ErrEmailNotVerified, providerName)
 		}
 
-		// プロバイダ紐付けを保存
+		// 同じメールのユーザーが別プロバイダで登録済みでも、メールの一致だけでは連携しない。
+		// プロバイダが確認済みとするメールでも、退職や再割り当てで現在の所有者が変わっている場合がある。
+		if _, err := a.userRepo.FindByEmail(ctx, userInfo.Email); err == nil {
+			return nil, fmt.Errorf("%w: provider %s", domain.ErrAccountLinkRequired, providerName)
+		} else if !errors.Is(err, domain.ErrNotFound) {
+			return nil, fmt.Errorf("failed to find user by email: %w", err)
+		}
+
+		role, err := a.determineRole(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine role: %w", err)
+		}
+
+		now := time.Now().UTC()
+		user = &domain.User{
+			ID:        uuid.New().String(),
+			Name:      userInfo.Name,
+			Email:     userInfo.Email,
+			AvatarURL: userInfo.AvatarURL,
+			Role:      role,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
 		newUP := &domain.UserProvider{
 			ID:         uuid.New().String(),
 			UserID:     user.ID,
 			Provider:   providerName,
 			ProviderID: userInfo.ProviderID,
 		}
-		if err := a.providerRepo.Save(ctx, newUP); err != nil {
-			return nil, fmt.Errorf("failed to save provider link: %w", err)
+		// 紐付けのないユーザーが残ると、次回のログインがメール一致で拒否されて登録を完了できなくなる。
+		// ユーザーと紐付けは必ず一緒に保存する。
+		if err := a.userRepo.CreateWithProvider(ctx, user, newUP); err != nil {
+			return nil, fmt.Errorf("failed to save new user: %w", err)
 		}
+		isNewUser = true
 	} else {
 		// 4b. 既存ユーザー: 情報を更新
 		user, err = a.userRepo.FindByID(ctx, up.UserID)

@@ -85,12 +85,17 @@ func main() {
 		)
 	}
 	if id := os.Getenv("MICROSOFT_CLIENT_ID"); id != "" {
-		providers["microsoft"] = infrastructure.NewMicrosoftOAuthProvider(
+		microsoft := infrastructure.NewMicrosoftOAuthProvider(
 			id,
 			os.Getenv("MICROSOFT_CLIENT_SECRET"),
 			os.Getenv("MICROSOFT_REDIRECT_URL"),
+			os.Getenv("MICROSOFT_TENANT_ID"),
 			oauthHTTPClient,
 		)
+		if !microsoft.RestrictsTenant() {
+			slog.Warn("MICROSOFT_TENANT_ID is not set to a single tenant; Microsoft logins will be rejected because the email address cannot be verified")
+		}
+		providers["microsoft"] = microsoft
 	}
 
 	// --- リポジトリ ---

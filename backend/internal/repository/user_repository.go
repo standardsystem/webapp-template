@@ -89,6 +89,32 @@ func (r *PostgresUserRepository) Save(ctx context.Context, user *domain.User) er
 	return nil
 }
 
+func (r *PostgresUserRepository) CreateWithProvider(ctx context.Context, user *domain.User, up *domain.UserProvider) error {
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO users (id, name, email, avatar_url, role, created_at, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			user.ID, user.Name, user.Email, user.AvatarURL, user.Role, user.CreatedAt, user.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("failed to insert user: %w", err)
+		}
+		// 紐付けが重複したときに黙って成功させると、紐付けのないユーザーが残る。
+		// ON CONFLICT を付けず、エラーにしてユーザーの作成ごとロールバックする。
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO user_providers (id, user_id, provider, provider_id)
+			 VALUES ($1, $2, $3, $4)`,
+			up.ID, up.UserID, up.Provider, up.ProviderID,
+		); err != nil {
+			return fmt.Errorf("failed to insert user_provider: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create user with provider: %w", err)
+	}
+	return nil
+}
+
 func (r *PostgresUserRepository) Delete(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {

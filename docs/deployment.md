@@ -32,8 +32,17 @@ URL 系の値は機密ではないため Secrets ではなく Variables に置�
 |---|---|---|
 | `FRONTEND_ORIGIN` | フロントエンド公開 URL。CORS / Cookie 検証で使用 | `https://app.example.com` |
 | `BACKEND_ORIGIN` | バックエンド公開 URL。OAuth redirect URL の組立に使用 | `https://api.example.com` |
+| `MICROSOFT_TENANT_ID` | Microsoft でのサインインを許可する Entra テナントの ID かドメイン。Microsoft を使うときだけ設定する | `contoso.onmicrosoft.com` |
 
-`deploy.yml` の `Validate required variables` ステップで未設定時は失敗します。
+`FRONTEND_ORIGIN` と `BACKEND_ORIGIN` が未設定だと、`deploy.yml` の `Validate required variables` ステップが失敗します。
+
+バックエンドは、プロバイダが確認したメールアドレスでだけ新規ユーザーを作成します。
+Microsoft Graph が返すメールアドレスはテナントの管理者が任意の値に設定できるため、`MICROSOFT_TENANT_ID` で自組織のテナントに限定したときだけ受け付けます。
+未設定のときや `common`・`organizations`・`consumers` を指定したときは、Microsoft での初回ログインを 403 で拒否します。
+
+メールアドレスが一致しても、別のプロバイダで登録済みのユーザーには自動で連携しません。
+初回ログインのメールアドレスが既存ユーザーと一致した場合は 409 を返します。
+プロバイダが確認済みとするメールアドレスでも、退職や再割り当てで現在の所有者が変わっている場合があるためです。
 
 ## Google Cloud 側の設定
 

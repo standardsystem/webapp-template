@@ -16,6 +16,7 @@ env:
   #   BACKEND_ORIGIN:  バックエンド公開 URL（例: https://api.example.com） OAuth redirect URL の組立に使用
   FRONTEND_ORIGIN: ${{ vars.FRONTEND_ORIGIN }}
   BACKEND_ORIGIN: ${{ vars.BACKEND_ORIGIN }}
+  MICROSOFT_TENANT_ID: ${{ vars.MICROSOFT_TENANT_ID }}
 
 jobs:
   # CI が成功した場合のみデプロイを実行
@@ -122,7 +123,7 @@ jobs:
             --platform=managed \
             --allow-unauthenticated \
             --set-secrets="DATABASE_URL=database-url:latest,JWT_SECRET=jwt-secret:latest,GOOGLE_CLIENT_ID=google-client-id:latest,GOOGLE_CLIENT_SECRET=google-client-secret:latest,GITHUB_CLIENT_ID=github-client-id:latest,GITHUB_CLIENT_SECRET=github-client-secret:latest,MICROSOFT_CLIENT_ID=microsoft-client-id:latest,MICROSOFT_CLIENT_SECRET=microsoft-client-secret:latest" \
-            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},FRONTEND_ORIGIN=${{ env.FRONTEND_ORIGIN }},COOKIE_SECURE=true,GOOGLE_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/google/callback,GITHUB_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/github/callback,MICROSOFT_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/microsoft/callback" \
+            --set-env-vars="GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }},FRONTEND_ORIGIN=${{ env.FRONTEND_ORIGIN }},COOKIE_SECURE=true,GOOGLE_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/google/callback,GITHUB_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/github/callback,MICROSOFT_REDIRECT_URL=${{ env.BACKEND_ORIGIN }}/api/v1/auth/microsoft/callback,MICROSOFT_TENANT_ID=${{ env.MICROSOFT_TENANT_ID }}" \
             --memory=512Mi \
             --cpu=1 \
             --min-instances=0 \

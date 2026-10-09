@@ -3,6 +3,7 @@ package mock
 
 import (
 	"context"
+	"errors"
 
 	"github.com/your-org/webapp-template/internal/domain"
 )
@@ -12,6 +13,8 @@ type UserRepository struct {
 	Users   map[string]*domain.User
 	SaveErr error
 	FindErr error
+	// ProviderRepo は CreateWithProvider が紐付けを保存する先です。
+	ProviderRepo *UserProviderRepository
 }
 
 // NewUserRepository は UserRepository を生成します。
@@ -56,6 +59,21 @@ func (m *UserRepository) FindAll(_ context.Context) ([]*domain.User, error) {
 func (m *UserRepository) Save(_ context.Context, user *domain.User) error {
 	if m.SaveErr != nil {
 		return m.SaveErr
+	}
+	m.Users[user.ID] = user
+	return nil
+}
+
+// CreateWithProvider は、紐付けの保存に失敗したときにユーザーも保存しません。
+func (m *UserRepository) CreateWithProvider(ctx context.Context, user *domain.User, up *domain.UserProvider) error {
+	if m.SaveErr != nil {
+		return m.SaveErr
+	}
+	if m.ProviderRepo == nil {
+		return errors.New("mock: ProviderRepo is not set")
+	}
+	if err := m.ProviderRepo.Save(ctx, up); err != nil {
+		return err
 	}
 	m.Users[user.ID] = user
 	return nil

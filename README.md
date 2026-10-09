@@ -73,7 +73,7 @@ make check
 ├── .markdownlint-cli2.jsonc
 ├── .pre-commit-config.yaml
 ├── .cursor/
-│   ├── rules/            # Markdown 規約（*.md）
+│   ├── rules/            # Markdown 規約（*.mdc）
 │   └── skills/           # ドキュメント作業用スキル
 ├── docker-compose.yml
 ├── .mise.toml
@@ -96,7 +96,7 @@ cd cli && go run ./cmd/webapp-cli health http://localhost:8080/health
 
 ## Cloud Run
 
-GitHub Secrets と手順の詳細は [docs/development.md](docs/development.md) および [docs/monorepo.md](docs/monorepo.md) を参照してください。
+GitHub の Secrets / Variables とデプロイ手順は [docs/deployment.md](docs/deployment.md)、DB マイグレーションは [docs/migration.md](docs/migration.md) を参照してください。
 
 ## AI との協働
 

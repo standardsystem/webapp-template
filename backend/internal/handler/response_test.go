@@ -27,6 +27,40 @@ func captureLogs(t *testing.T) *bytes.Buffer {
 	return &buf
 }
 
+func TestWriteJSON(t *testing.T) {
+	t.Run("正常系: ステータスと JSON を書き込む", func(t *testing.T) {
+		logs := captureLogs(t)
+		rec := httptest.NewRecorder()
+
+		writeJSON(rec, http.StatusCreated, map[string]string{"id": "u1"})
+
+		if rec.Code != http.StatusCreated {
+			t.Errorf("status = %d, want %d", rec.Code, http.StatusCreated)
+		}
+		if got := rec.Header().Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q, want application/json", got)
+		}
+		if got := strings.TrimSpace(rec.Body.String()); got != `{"id":"u1"}` {
+			t.Errorf("body = %s", got)
+		}
+		if logs.Len() != 0 {
+			t.Errorf("unexpected log output: %s", logs.String())
+		}
+	})
+
+	t.Run("異常系: エンコードできない値はログに残す", func(t *testing.T) {
+		logs := captureLogs(t)
+		rec := httptest.NewRecorder()
+
+		// チャネルは JSON にエンコードできない
+		writeJSON(rec, http.StatusOK, map[string]any{"ch": make(chan int)})
+
+		if !strings.Contains(logs.String(), "failed to write response body") {
+			t.Errorf("encode failure is not logged: %s", logs.String())
+		}
+	})
+}
+
 func TestWriteError(t *testing.T) {
 	tests := []struct {
 		name        string

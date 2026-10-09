@@ -25,7 +25,7 @@ gcloud = "564.0.0"    # Google Cloud SDK（vfox:mise-plugins/vfox-gcloud）
 golangci-lint                              = "2.11.4"
 "go:github.com/air-verse/air"              = "v1.65.0"
 "go:golang.org/x/vuln/cmd/govulncheck"     = "v1.8.0"
-# goose は不要（マイグレーションはサーバー起動時に自動適用）
+# マイグレーションの CLI は入れない。backend/cmd/migrate が golang-migrate を組み込んでいる（mise run db:migrate）
 
 # ── GitHub Actions ─────────────────────────────────────────
 actionlint = "1.7.12"

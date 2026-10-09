@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -73,8 +72,7 @@ func (g *GitHubOAuthProvider) Exchange(ctx context.Context, code string) (*domai
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("token exchange failed (status %d): %s", resp.StatusCode, body)
+		return nil, responseError("token exchange", resp)
 	}
 
 	var result struct {
@@ -108,8 +106,7 @@ func (g *GitHubOAuthProvider) UserInfo(ctx context.Context, token *domain.OAuthT
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("userinfo request failed (status %d): %s", resp.StatusCode, body)
+		return nil, responseError("userinfo request", resp)
 	}
 
 	var info struct {
@@ -157,8 +154,7 @@ func (g *GitHubOAuthProvider) fetchPrimaryEmail(ctx context.Context, accessToken
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("emails request failed (status %d): %s", resp.StatusCode, body)
+		return "", responseError("emails request", resp)
 	}
 
 	var emails []struct {

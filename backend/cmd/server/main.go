@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -23,16 +25,18 @@ import (
 )
 
 func main() {
-	// .env 読み込み（本番では無視される）
-	_ = godotenv.Load()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	// .env はローカル開発用。本番にはファイルがないので、ないこと自体はエラーにしない。
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		slog.Warn("failed to load .env", "err", err)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
 
 	ctx := context.Background()
 

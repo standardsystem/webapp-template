@@ -17,6 +17,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"strconv"
@@ -30,10 +31,13 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
-
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+
+	// .env はローカル開発用。Cloud Run Job にはファイルがないので、ないこと自体はエラーにしない。
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		slog.Warn("failed to load .env", "err", err)
+	}
 
 	if len(os.Args) < 2 {
 		usage()

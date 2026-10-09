@@ -15,7 +15,10 @@ import (
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	// ステータスコードは送信済みで、呼び出し元へ返しても対応できない。原因をログに残す。
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Error("failed to write response body", "err", err, "status", status)
+	}
 }
 
 // errorResponses は domain のエラーと、利用者へ返すステータスコード・本文の対応です。

@@ -8,7 +8,7 @@
 | サービス | Cloud Run service 名 (デフォルト) | ベースイメージ |
 |---|---|---|
 | backend (Go API) | `webapp-template-api` | distroless |
-| frontend (React SPA) | `webapp-template-web` | `nginx:1.28-alpine` |
+| frontend (React SPA) | `webapp-template-web` | `nginxinc/nginx-unprivileged:1.30-alpine-slim` |
 
 `webapp-template-api` / `webapp-template-web` は案件ごとに `deploy.yml` の `env:` で書き換えてください。
 
@@ -199,5 +199,5 @@ VPC 内の他のリソースと組み合わせる場合や、private IP のみ�
 
 ## 既知の制限・今後の改善
 
-- 本テンプレートは現状 **アプリ起動時に DB マイグレーションを自動実行** します。本番運用では PR3 で予定している Cloud Run Job 化への移行が必須です。詳細は提案書 v2 を参照。
+- DB マイグレーションは Cloud Run Job（`deploy-migrate`）が backend のデプロイ前に実行します。アプリの起動時には実行しません。ロールバックは手動です。手順は [migration.md](migration.md) を参照してください。
 - frontend deploy は `--allow-unauthenticated` で公開しています。社内専用にする場合は IAP 等の追加設計が必要です。

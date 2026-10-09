@@ -81,10 +81,14 @@ CI（`.github/workflows/ci.yml`）は `.mise.toml` のタスクを呼び出す�
 | `scripts/` のテスト | `test:scripts` | ○ | ○ |
 | フロントの本番ビルド | `build:frontend:dist` | ○ | ○ |
 | フロントの本番イメージのビルドと nginx の設定検査 | `test:frontend:image` | ○ | ○ |
+| フロントから API への経路のスモークテスト | `test:routing` | ― | ○ |
 | `pnpm audit --prod` | `audit:frontend` | ― | ○（失敗しても警告のみ） |
 
-`pnpm audit` だけは `mise run check` に含めていません。監査 API の障害や、自分の変更と関係のない新しい脆弱性の公開で失敗するためです。
-手元で確認するときは `mise run audit:frontend` を実行してください。
+`mise run check` に含めていない検査は 2 つです。どちらもタスクを直接実行すれば手元で確認できます。
+
+- `test:routing`: Docker Compose の一式と本番イメージを起動し、Vite の開発サーバー経由と nginx 経由の両方で `/health` と `/api` が backend に届くことを確認します。
+  数分かかり、ポート 5173・8080・5432 を使うため、`mise run dev` を止めてから実行してください。OAuth ログインは確認しません。
+- `audit:frontend`: 監査 API の障害や、自分の変更と関係のない新しい脆弱性の公開で失敗するため、CI でも警告にとどめています。
 
 gofmt 未適用のファイルがあると `lint:backend`・`lint:cli` が失敗します。`mise run fmt` で整形してください。
 

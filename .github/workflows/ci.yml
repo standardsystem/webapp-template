@@ -84,6 +84,21 @@ jobs:
       - name: Test
         run: mise run test:cli
 
+  # ---- フロントから API への経路 ----
+  routing-smoke:
+    name: Routing Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: node
+
+      # Vite の開発サーバー経由と、本番イメージの nginx 経由の両方で /api が backend に届くことを確認する
+      - name: Smoke test /api routing (Vite proxy and nginx)
+        run: mise run test:routing
+
   # ---- React フロントエンド ----
   frontend-test:
     name: Frontend Test

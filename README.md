@@ -4,15 +4,17 @@ Go + React の Web アプリに加え、**Go 製 CLI** を同じリポジトリ�
 
 **人向けの手順書・詳細ガイド:** [docs/README.md](docs/README.md)
 
+**このテンプレートから新しい案件を始めるとき:** [docs/getting-started.md](docs/getting-started.md)
+
 ## 技術スタック
 
 | 領域 | 技術 |
 | ---- | --- |
-| ツール管理 | mise（Go / Node / Python バージョン固定） |
+| ツール管理 | mise（Go / Node と開発ツールのバージョン固定） |
 | バックエンド | Go 1.26 / chi / distroless |
 | CLI | Go 1.26（`cli/`・`go.work`） |
 | フロントエンド | React 18 / Vite / TypeScript (strict) |
-| パッケージ管理 | Go Modules / pnpm (Node) / uv (Python) |
+| パッケージ管理 | Go Modules / pnpm (Node) |
 | タスクランナー | mise tasks（`mise run <task>`） |
 | ドキュメント | `docs/`・markdownlint（`.markdownlint-cli2.jsonc`） |
 | インフラ | Google Cloud Run / GitHub Actions |

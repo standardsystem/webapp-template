@@ -10,11 +10,9 @@
 [tools]
 # ── ランタイム ──────────────────────────────────────────────
 go     = "1.26.9"     # go.mod / Dockerfile の 1.26 系。パッチまで固定し、脆弱性修正のたびに上げる
-node   = "24"         # Dockerfile node:24-trixie-slim と一致 (Active LTS)
-python = "3.14"       # スクリプト・ツール用
+node   = "24"         # Dockerfile node:24-trixie-slim と一致 (Active LTS)。scripts/*.mjs もこれで実行する
 
 # ── パッケージマネージャ ───────────────────────────────────
-uv   = "0.11.3"       # Python 高速パッケージマネージャ
 pnpm = "10.33.0"      # Node.js 高速パッケージマネージャ（frontend/package.json packageManager と一致）
 
 # ── クラウド・ホスティング CLI ──────────────────────────────
@@ -41,6 +39,11 @@ auto_install = true
 _.file = [".env", ".env.local"]
 
 # ── タスク ──────────────────────────────────────────────────
+
+# テンプレートから作成した直後に 1 度だけ実行する。手順は docs/getting-started.md
+[tasks.init]
+description = "テンプレートの名前を案件用に書き換える（mise run init -- <org>/<repo>）"
+run = "node scripts/init-template.mjs"
 
 [tasks.setup]
 description = "プロジェクト初期セットアップ（Go モジュール取得 + pnpm install）"
@@ -309,9 +312,7 @@ run = [
   "mise current",
   "go version",
   "node --version",
-  "python --version",
   "pnpm --version",
-  "uv --version",
   "gh --version",
   "gcloud --version",
 ]

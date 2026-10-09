@@ -119,7 +119,7 @@ mise run db:test:down       # テスト用 DB を片付ける
 コミット前に Markdown などを整えたい場合:
 
 ```bash
-pipx install pre-commit   # または mise で pipx 経由の pre-commit を有効化
+pipx install pre-commit   # Python と pipx は mise の管理対象外。各自の環境のものを使う
 pre-commit install
 ```
 

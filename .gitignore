@@ -32,11 +32,6 @@ frontend/vite.config.d.ts
 # mise
 .mise.local.toml
 
-# Python (uv)
-__pycache__/
-*.pyc
-.venv/
-
 # Claude Code
 .claude/
 

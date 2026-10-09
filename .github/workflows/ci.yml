@@ -41,7 +41,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Go は .mise.toml の "1.26" から最新のパッチに解決される（標準ライブラリの脆弱性修正を取り込むため）
       - uses: jdx/mise-action@v5
         with:
           install_args: go node golangci-lint go:golang.org/x/vuln/cmd/govulncheck

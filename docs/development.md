@@ -86,8 +86,8 @@ CI（`.github/workflows/ci.yml`）は `.mise.toml` のタスクを呼び出す�
 
 gofmt 未適用のファイルがあると `lint:backend`・`lint:cli` が失敗します。`mise run fmt` で整形してください。
 
-Go のバージョンは `.mise.toml` で `1.26` と指定しており、CI では最新のパッチに解決されます。
-手元の Go が古いと、`mise run vuln` が標準ライブラリの脆弱性を報告します。その場合は `mise upgrade go` で更新してください。
+Go のバージョンは `.mise.toml` でパッチまで固定しています（`1.26` のような指定だと、mise は公開直後のリリースを選ばないため、修正版の取り込みが遅れます）。
+`mise run vuln` が標準ライブラリの脆弱性を報告したら、`.mise.toml` の `go` を「Fixed in」に示されたバージョンへ上げてください。
 
 ## Markdown
 

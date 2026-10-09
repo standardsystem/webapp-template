@@ -33,6 +33,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
+          # ランナーにキャッシュ済みの古いパッチではなく最新パッチを使う（標準ライブラリの脆弱性修正を取り込むため）
+          check-latest: true
           cache-dependency-path: backend/go.sum
 
       - name: Download dependencies
@@ -70,6 +72,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
+          # ランナーにキャッシュ済みの古いパッチではなく最新パッチを使う（標準ライブラリの脆弱性修正を取り込むため）
+          check-latest: true
 
       - name: Download dependencies
         run: go mod download
